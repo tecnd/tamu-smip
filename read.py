@@ -1,5 +1,5 @@
 import math
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import requests
 from auth import update_token
 import nidaqmx
@@ -31,8 +31,8 @@ def read_data(sample_rate:int, duration:int, channel:str, id:int):
             task.timing.samp_quant_samp_per_chan = 200000 # Supposed to set the buffer, not sure if actually takes effect
             task.start()
             # x = list()
+            ts = datetime.now(timezone.utc)
             while samples_to_take > 0:
-                ts = datetime.utcnow()
                 # Take 1 second of samples
                 if samples_to_take > sample_rate:
                     buf = task.read(sample_rate)
@@ -46,7 +46,7 @@ def read_data(sample_rate:int, duration:int, channel:str, id:int):
                         "value": str(sample),
                         "status": 0
                     })
-                    ts = ts + time_step
+                    ts += time_step
                 # Test JWT validity
                 token = update_token(token, 'test', 'smtamu_group', 'parthdave', 'parth1234')
                 # Batch upload
