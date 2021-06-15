@@ -53,7 +53,7 @@ app.layout = html.Div(
             n_intervals=0
         ),
         dcc.Store(id='jwt', storage_type='session', data=''),  # Persistently store JWT
-        dcc.Store(id='last_time', data=datetime.now(timezone.utc).isoformat())
+        dcc.Store(id='last_time')
     ])
 )
 
@@ -81,6 +81,11 @@ def update_graph_live(n, token, last_time):
     called = datetime.now(timezone.utc)
     # 1 sec delay so server has time to add live data
     end_time = called - timedelta(seconds=1)
+    
+    # Initialization and lag prevention
+    if last_time is None or strptime_fix(last_time) - end_time > timedelta(seconds=2):
+        last_time = end_time.isoformat()
+    
     # Check if token is still valid
     token = update_token(token, 'test', 'smtamu_group',
                          'parthdave', 'parth1234')
