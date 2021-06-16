@@ -2,6 +2,7 @@
 import dash
 import dash_core_components as dcc
 import dash_html_components as html
+import dash_bootstrap_components as dbc
 from dash.dependencies import Input, Output, State
 from dash.exceptions import PreventUpdate
 import plotly.express as px
@@ -35,22 +36,30 @@ query GetData($startTime: Datetime, $endTime: Datetime) {
 s = requests.Session()
 
 # Page layout stuff
-external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
-
-app = dash.Dash(__name__, external_stylesheets=external_stylesheets)
-app.layout = html.Div(
+app = dash.Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP])
+app.layout = dbc.Container([
+    dbc.Row(
+        dbc.Col(html.H1('Dashboard'), width=12)
+    ),
+    dbc.Row([
+        dbc.Col(
+            dcc.Graph(id='live-update-graph', animate=False, figure={
+                'data': [{'x': [], 'y': []}],
+                'layout': {
+                    'title': 'Time portrait, last 5000 samples',
+                    'xaxis': {'rangemode': 'tozero'},
+                    'yaxis': {'rangemode': 'tozero'}
+                }
+            }, config={'displayModeBar': False}), md=4
+        ),
+        dbc.Col(
+            dcc.Graph(id='fft-graph', animate=False, config={'displayModeBar': False}), md=4
+        ),
+        dbc.Col(
+            dcc.Graph(id='spectrogram', animate=False, config={'displayModeBar': False}), md=4
+        )
+    ], no_gutters=True),
     html.Div([
-        html.H4('Dashboard'),
-        # html.Div(id='live-update-text'),
-        dcc.Graph(id='live-update-graph', animate=False, figure={
-            'data': [{'x': [], 'y': []}],
-            'layout': {
-                'xaxis': {'rangemode': 'tozero'},
-                'yaxis': {'rangemode': 'tozero'}
-            }
-        }, config={'displayModeBar': False}),
-        dcc.Graph(id='fft-graph', animate=False, config={'displayModeBar': False}),
-        dcc.Graph(id='spectrogram', animate=False, config={'displayModeBar': False}),
         # Timer to get new data every second
         dcc.Interval(
             id='interval-component',
@@ -62,7 +71,7 @@ app.layout = html.Div(
         dcc.Store(id='last_time'),
         dcc.Store(id='intermediate-data')
     ])
-)
+], fluid=True)
 
 # Callback to get data every second
 
@@ -138,7 +147,11 @@ def update_fft(data):
         raise PreventUpdate
     fig = px.line(x=np.fft.rfftfreq(len(data['val_list']), d=1/1000),
                   y=np.abs(np.fft.rfft(data['val_list'])), log_x=True)
-    fig.update_layout(xaxis_rangemode='tozero', yaxis_rangemode='tozero')
+    fig.update_layout(title={
+        'text': 'FFT, last second',
+        'x': 0.5,
+        'xanchor': 'center'
+    }, xaxis_rangemode='tozero', yaxis_rangemode='tozero')
     return fig
 
 # Callback that calculates and plots spectrogram
@@ -150,7 +163,12 @@ def update_spec(data):
         raise PreventUpdate
     f, t, Sxx = signal.spectrogram(np.asarray(data['val_list']), 1000)
     fig = go.Figure(data=go.Heatmap(z=Sxx, y=f, x=t))
-    fig.update_yaxes(type="log")
+    fig.update_layout(title={
+        'text': 'Spectrogram, last second',
+        'x': 0.5,
+        'xanchor': 'center'
+    })
+    # fig.update_yaxes(type="log")
     return fig
 
 if __name__ == '__main__':
