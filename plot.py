@@ -6,6 +6,7 @@ import dash_html_components as html
 # as dictionaries so no need to import a whole module
 # import plotly.express as px
 from dash.dependencies import Input, Output, State
+from dash.exceptions import PreventUpdate
 # Library imports
 import requests
 from datetime import datetime, timedelta, timezone
@@ -39,7 +40,7 @@ app = dash.Dash(__name__, external_stylesheets=external_stylesheets)
 app.layout = html.Div(
     html.Div([
         html.H4('Dashboard'),
-        html.Div(id='live-update-text'),
+        # html.Div(id='live-update-text'),
         dcc.Graph(id='live-update-graph', animate=False, figure={
             'data': [{'x': [], 'y': []}],
             'layout': {
@@ -47,37 +48,30 @@ app.layout = html.Div(
                 'yaxis': {'rangemode': 'tozero'}
             }
         }, config={'displayModeBar': False}),
+        # Timer to get new data every second
         dcc.Interval(
             id='interval-component',
             interval=1*1000,  # in milliseconds
             n_intervals=0
         ),
-        dcc.Store(id='jwt', storage_type='session', data=''),  # Persistently store JWT
-        dcc.Store(id='last_time')
+        # Store JWT in local memory, saved across browser closes
+        dcc.Store(id='jwt', storage_type='local', data=''),
+        dcc.Store(id='last_time'),
+        dcc.Store(id='intermediate-data')
     ])
 )
 
-# Callback to display the current time
+# Callback to get data every second
 
 
-@app.callback(Output('live-update-text', 'children'),
-              Input('interval-component', 'n_intervals'))
-def update_metrics(n):
-    now = datetime.now().isoformat()
-    style = {'padding': '5px', 'fontSize': '16px'}
-    return html.Span(now, style=style)
-
-# Callback to get data and update the graph every second
-
-
-@app.callback(Output('live-update-graph', 'extendData'),
+@app.callback(Output('intermediate-data', 'data'),
               Output('jwt', 'data'),
               Output('last_time', 'data'),
               Input('interval-component', 'n_intervals'),
               State('jwt', 'data'),
               State('last_time', 'data')
               )
-def update_graph_live(n, token, last_time):
+def update_live_data(n, token, last_time):
     called = datetime.now(timezone.utc)
     # 1 sec delay so server has time to add live data
     end_time = called - timedelta(seconds=1)
@@ -120,8 +114,25 @@ def update_graph_live(n, token, last_time):
     print(datetime.now(), 'Total', data_processed - called, 'Query', r.elapsed,
           'Processing', data_processed - start_processing)
 
-    return (dict(x=[time_list], y=[val_list]), [0], 30000), token, end_time.isoformat()
+    return {'time_list': time_list, 'val_list': val_list}, token, end_time.isoformat()
 
+# Callback that graphs the data
+
+
+@app.callback(Output('live-update-graph', 'extendData'),
+              Input('intermediate-data', 'data'))
+def update_graph(data):
+    if data is None:
+        raise PreventUpdate
+    return {'x': [data['time_list']], 'y':[data['val_list']]}, [0], 10000
+
+# Callback that calculates and plots FFT
+"""
+@app.callback(Output('live-update-text', 'children'),
+              Input('intermediate-data', 'data'))
+def update_fft(data):
+    pass
+"""
 
 if __name__ == '__main__':
     app.run_server(debug=True)
