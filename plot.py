@@ -2,14 +2,13 @@
 import dash
 import dash_core_components as dcc
 import dash_html_components as html
-# Technically we are plotting with plotly, but we can write basic graphs
-# as dictionaries so no need to import a whole module
-# import plotly.express as px
+import plotly.express as px
 from dash.dependencies import Input, Output, State
 from dash.exceptions import PreventUpdate
 # Library imports
 import requests
 from datetime import datetime, timedelta, timezone
+import numpy as np
 # Local imports
 from auth import update_token
 from strptime_fix import strptime_fix
@@ -48,6 +47,7 @@ app.layout = html.Div(
                 'yaxis': {'rangemode': 'tozero'}
             }
         }, config={'displayModeBar': False}),
+        dcc.Graph(id='fft-graph', animate=False, config={'displayModeBar': False}),
         # Timer to get new data every second
         dcc.Interval(
             id='interval-component',
@@ -122,17 +122,22 @@ def update_live_data(n, token, last_time):
 @app.callback(Output('live-update-graph', 'extendData'),
               Input('intermediate-data', 'data'))
 def update_graph(data):
-    if data is None:
+    if data is None or not data['val_list']:
         raise PreventUpdate
-    return {'x': [data['time_list']], 'y':[data['val_list']]}, [0], 10000
+    return {'x': [data['time_list']], 'y':[data['val_list']]}, [0], 5000
 
 # Callback that calculates and plots FFT
-"""
-@app.callback(Output('live-update-text', 'children'),
+
+@app.callback(Output('fft-graph', 'figure'),
               Input('intermediate-data', 'data'))
 def update_fft(data):
-    pass
-"""
+    if data is None or not data['val_list']:
+        raise PreventUpdate
+    fig = px.line(x=np.fft.rfftfreq(len(data['val_list']), d=1/1000),
+                  y=np.abs(np.fft.rfft(data['val_list'])), log_x=True)
+    fig.update_layout(xaxis_rangemode='tozero', yaxis_rangemode='tozero')
+    return fig
+
 
 if __name__ == '__main__':
     app.run_server(debug=True)

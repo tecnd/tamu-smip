@@ -1,5 +1,6 @@
-from auth import get_token
-from datetime import datetime, timezone
+from auth import update_token
+from datetime import datetime, timedelta, timezone
+import time
 import numpy as np
 import pandas as pd
 import requests
@@ -19,23 +20,31 @@ mutation AddData($id: BigInt, $entries: [TimeSeriesEntryInput]) {
 }
 """
 
-def sin_plot(freq:float, duration:int):
-    token = get_token("test", "smtamu_group", "parthdave", "parth1234")
-    time_range = pd.date_range(datetime.now(timezone.utc), periods=duration, freq='L')
-    val_range = np.arange(0,duration,dtype=np.single)
-    val_range *= 2*np.pi/freq
-    val_range = np.sin(val_range)
-    payload = [{'timestamp': ts.isoformat(), 'value': str(val), 'status': 0} for ts, val in zip(time_range, val_range)]
-    r = requests.post(ENDPOINT, json={
-        "query": mutation,
-        "variables": {
-            "id": 5356,
-            "entries": payload
-        }
-    }, headers={"Authorization": f"Bearer {token}"})
-    print(r.elapsed, r.json())
+def sin_plot(freq1:float, freq2:float):
+    token = ''
+    t = 0
+    with requests.Session() as s:
+        while True:
+            now = datetime.now(timezone.utc)
+            future = now + timedelta(seconds=1)
+            token = update_token(token, "test", "smtamu_group", "parthdave", "parth1234")
+            time_range = pd.date_range(now, periods=1000, freq='L')
+            val_range = np.arange(t, t+1000, dtype=np.single)
+            val_range *= 2*np.pi/1000
+            val_range = np.sin(freq1 * val_range) + 0.5*np.sin(freq2 * val_range)
+            payload = [{'timestamp': ts.isoformat(), 'value': str(val), 'status': 0} for ts, val in zip(time_range, val_range)]
+            r = s.post(ENDPOINT, json={
+                "query": mutation,
+                "variables": {
+                    "id": 5356,
+                    "entries": payload
+                }
+            }, headers={"Authorization": f"Bearer {token}"})
+            print(r.elapsed, r.json())
+            t += 1000
+            time.sleep((future - datetime.now(timezone.utc)).total_seconds())
         
             
 
 if __name__ == "__main__":
-    sin_plot(1000, 5000)
+    sin_plot(100, 80)
