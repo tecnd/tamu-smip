@@ -2,13 +2,15 @@
 import dash
 import dash_core_components as dcc
 import dash_html_components as html
-import plotly.express as px
 from dash.dependencies import Input, Output, State
 from dash.exceptions import PreventUpdate
+import plotly.express as px
+import plotly.graph_objects as go
 # Library imports
 import requests
 from datetime import datetime, timedelta, timezone
 import numpy as np
+from scipy import signal
 # Local imports
 from auth import update_token
 from strptime_fix import strptime_fix
@@ -48,6 +50,7 @@ app.layout = html.Div(
             }
         }, config={'displayModeBar': False}),
         dcc.Graph(id='fft-graph', animate=False, config={'displayModeBar': False}),
+        dcc.Graph(id='spectrogram', animate=False, config={'displayModeBar': False}),
         # Timer to get new data every second
         dcc.Interval(
             id='interval-component',
@@ -138,6 +141,17 @@ def update_fft(data):
     fig.update_layout(xaxis_rangemode='tozero', yaxis_rangemode='tozero')
     return fig
 
+# Callback that calculates and plots spectrogram
+
+@app.callback(Output('spectrogram', 'figure'),
+              Input('intermediate-data', 'data'))
+def update_spec(data):
+    if data is None or not data['val_list']:
+        raise PreventUpdate
+    f, t, Sxx = signal.spectrogram(np.asarray(data['val_list']), 1000)
+    fig = go.Figure(data=go.Heatmap(z=Sxx, y=f, x=t))
+    fig.update_yaxes(type="log")
+    return fig
 
 if __name__ == '__main__':
     app.run_server(debug=True)
