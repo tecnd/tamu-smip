@@ -1,7 +1,8 @@
-from auth import update_token
-import time, datetime
-import math
-import requests, jwt
+from auth import get_token
+from datetime import datetime, timezone
+import numpy as np
+import pandas as pd
+import requests
 
 ENDPOINT = "https://smtamu.cesmii.net/graphql"
 
@@ -18,30 +19,23 @@ mutation AddData($id: BigInt, $entries: [TimeSeriesEntryInput]) {
 }
 """
 
-def sin_plot():
-    token = ''
-    with requests.Session() as s:
-        for i in range(10):
-            now = datetime.datetime.utcnow()
-            next_time = now + datetime.timedelta(seconds=1)
-            # Check if JWT is still valid
-            token = update_token(token, 'test', 'smtamu_group', 'parthdave', 'parth1234')
-            r = s.post(ENDPOINT, json={
-                "query": mutation,
-                "variables": {
-                    "id": 5356,
-                    "entries": {
-                        "timestamp": now.isoformat(),
-                        "value": str(math.sin(datetime.datetime.timestamp(now))),
-                        "status": 0
-                    }
-                }
-            }, headers={"Authorization": f"Bearer {token}"})
-            # Receive response
-            print(now, r.json(), 'Elapsed', r.elapsed)
-            # Sleep until next cycle
-            time.sleep(datetime.timedelta.total_seconds(next_time - datetime.datetime.utcnow()))
+def sin_plot(freq:float, duration:int):
+    token = get_token("test", "smtamu_group", "parthdave", "parth1234")
+    time_range = pd.date_range(datetime.now(timezone.utc), periods=duration, freq='L')
+    val_range = np.arange(0,duration,dtype=np.single)
+    val_range *= 2*np.pi/freq
+    val_range = np.sin(val_range)
+    payload = [{'timestamp': ts.isoformat(), 'value': str(val), 'status': 0} for ts, val in zip(time_range, val_range)]
+    r = requests.post(ENDPOINT, json={
+        "query": mutation,
+        "variables": {
+            "id": 5356,
+            "entries": payload
+        }
+    }, headers={"Authorization": f"Bearer {token}"})
+    print(r.elapsed, r.json())
+        
             
 
 if __name__ == "__main__":
-    sin_plot()
+    sin_plot(1000, 5000)
