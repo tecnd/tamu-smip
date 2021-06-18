@@ -68,13 +68,35 @@ app.layout = dbc.Container([
         ),
         dbc.Col([
             dcc.Graph(id='spectrogram', animate=False, config={'displayModeBar': False}),
-            daq.NumericInput(
-                id='nperseg',
-                label='Number of bins',
-                min=1,
-                max=1000,
-                value=500
-            )  
+            dbc.Row([
+                dbc.Col([
+                    html.P('Frequency bins'),
+                    daq.NumericInput(
+                        id='nperseg',
+                        min=1,
+                        max=1000,
+                        value=500
+                    )
+                ]),
+                dbc.Col([
+                    html.P('Window type'),
+                    dcc.Dropdown(id='window', options=[
+                        {'label': 'Boxcar', 'value': 'boxcar'},
+                        {'label': 'Triangular', 'value': 'triang'},
+                        {'label': 'Blackman', 'value': 'blackman'},
+                        {'label': 'Hamming', 'value': 'hamming'},
+                        {'label': 'Hann', 'value': 'hann'},
+                        {'label': 'Bartlett', 'value': 'bartlett'},
+                        {'label': 'Flat top', 'value': 'flattop'},
+                        {'label': 'Parzen', 'value': 'parzen'},
+                        {'label': 'Bohman', 'value': 'bohman'},
+                        {'label': 'Blackman-Harris', 'value': 'blackmanharris'},
+                        {'label': 'Nuttall', 'value': 'nuttall'},
+                        {'label': 'Bartlett-Hann', 'value': 'barthann'}
+                    ], value='hamming', clearable=False)
+                ])
+            ]),
+            
         ], md=4)
     ], no_gutters=True),
     html.Div([
@@ -183,7 +205,7 @@ def update_fft(data):
 def update_spec(data, nperseg):
     if data is None or not data['val_list']:
         raise PreventUpdate
-    f, t, Sxx = signal.spectrogram(np.asarray(data['val_list']), 1000, nperseg=nperseg)
+    f, t, Sxx = signal.spectrogram(np.asarray(data['val_list']), 1000, nperseg=nperseg, window='hamming')
     fig = go.Figure(data=go.Heatmap(z=Sxx, y=f, x=t))
     fig.update_layout(title={
         'text': 'Spectrogram, last second',
