@@ -42,6 +42,9 @@ def sin_plot(freq1:float, freq2:float):
             }, headers={"Authorization": f"Bearer {token}"})
             print(r.elapsed, r.json())
             t += 1000
+            freq2 += 10
+            if freq2 > 500:
+              freq2 = 0
             time.sleep(max((future - datetime.now(timezone.utc)).total_seconds(), 0))
         
             

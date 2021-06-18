@@ -69,6 +69,6 @@ def read_data(sample_rate:int, duration:int, channel:str, id:int):
     
 if __name__ == '__main__':
     # plt.ion()
-    read_data(3000, 60, 'cDAQ3Mod4/ai0', 5356)
+    read_data(1000, 60, 'cDAQ3Mod4/ai0', 5356)
     # plt.show(block=True)
     

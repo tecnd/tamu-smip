@@ -3,6 +3,7 @@ import dash
 import dash_core_components as dcc
 import dash_html_components as html
 import dash_bootstrap_components as dbc
+import dash_daq as daq
 from dash.dependencies import Input, Output, State
 from dash.exceptions import PreventUpdate
 import plotly.express as px
@@ -39,25 +40,42 @@ s = requests.Session()
 app = dash.Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP])
 app.layout = dbc.Container([
     dbc.Row(
-        dbc.Col(html.H1('Dashboard'), width=12)
+        dbc.Col(html.H1('Dashboard'))
+    ),
+    dbc.Row(
+        dbc.Col(html.P(id='info'))
     ),
     dbc.Row([
-        dbc.Col(
+        dbc.Col([
             dcc.Graph(id='live-update-graph', animate=False, figure={
                 'data': [{'x': [], 'y': []}],
                 'layout': {
-                    'title': 'Time portrait, last 5000 samples',
+                    'title': 'Time portrait',
                     'xaxis': {'rangemode': 'tozero'},
                     'yaxis': {'rangemode': 'tozero'}
                 }
-            }, config={'displayModeBar': False}), md=4
-        ),
+            }, config={'displayModeBar': False}),
+            daq.NumericInput(
+                id='keep_last',
+                label='Show last samples',
+                min=100,
+                max=5000,
+                value=1000
+            )
+        ], md=4),
         dbc.Col(
             dcc.Graph(id='fft-graph', animate=False, config={'displayModeBar': False}), md=4
         ),
-        dbc.Col(
-            dcc.Graph(id='spectrogram', animate=False, config={'displayModeBar': False}), md=4
-        )
+        dbc.Col([
+            dcc.Graph(id='spectrogram', animate=False, config={'displayModeBar': False}),
+            daq.NumericInput(
+                id='nperseg',
+                label='Number of bins',
+                min=1,
+                max=1000,
+                value=500
+            )  
+        ], md=4)
     ], no_gutters=True),
     html.Div([
         # Timer to get new data every second
@@ -79,6 +97,7 @@ app.layout = dbc.Container([
 @app.callback(Output('intermediate-data', 'data'),
               Output('jwt', 'data'),
               Output('last_time', 'data'),
+              Output('info', 'children'),
               Input('interval-component', 'n_intervals'),
               State('jwt', 'data'),
               State('last_time', 'data')
@@ -113,7 +132,8 @@ def update_live_data(n, token, last_time):
     start_processing = datetime.now(timezone.utc)
 
     # SMIP always returns one entry before the start time, we don't need this
-    data.pop(0)
+    if data:
+        data.pop(0)
     # Ideally this would work, but if timestamp is at 0 microseconds then server
     # returns time with %S%z instead of %S.%f%z, which breaks things
     #   UPDATE: Marked as SMIP bug, hopefully fixed some day
@@ -126,17 +146,18 @@ def update_live_data(n, token, last_time):
     print(datetime.now(), 'Total', data_processed - called, 'Query', r.elapsed,
           'Processing', data_processed - start_processing)
 
-    return {'time_list': time_list, 'val_list': val_list}, token, end_time.isoformat()
+    return {'time_list': time_list, 'val_list': val_list}, token, end_time.isoformat(), f'Last updated {end_time.astimezone()}, received {len(data)} samples in {(data_processed - called).total_seconds()} seconds'
 
 # Callback that graphs the data
 
 
 @app.callback(Output('live-update-graph', 'extendData'),
-              Input('intermediate-data', 'data'))
-def update_graph(data):
+              Input('intermediate-data', 'data'),
+              State('keep_last', 'value'))
+def update_graph(data, keep_last):
     if data is None or not data['val_list']:
         raise PreventUpdate
-    return {'x': [data['time_list']], 'y':[data['val_list']]}, [0], 5000
+    return {'x': [data['time_list']], 'y':[data['val_list']]}, [0], keep_last
 
 # Callback that calculates and plots FFT
 
@@ -157,11 +178,12 @@ def update_fft(data):
 # Callback that calculates and plots spectrogram
 
 @app.callback(Output('spectrogram', 'figure'),
-              Input('intermediate-data', 'data'))
-def update_spec(data):
+              Input('intermediate-data', 'data'),
+              State('nperseg', 'value'))
+def update_spec(data, nperseg):
     if data is None or not data['val_list']:
         raise PreventUpdate
-    f, t, Sxx = signal.spectrogram(np.asarray(data['val_list']), 1000)
+    f, t, Sxx = signal.spectrogram(np.asarray(data['val_list']), 1000, nperseg=nperseg)
     fig = go.Figure(data=go.Heatmap(z=Sxx, y=f, x=t))
     fig.update_layout(title={
         'text': 'Spectrogram, last second',
