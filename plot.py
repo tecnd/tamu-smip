@@ -67,7 +67,8 @@ app.layout = dbc.Container([
             dcc.Graph(id='fft-graph', animate=False, config={'displayModeBar': False}), md=4
         ),
         dbc.Col([
-            dcc.Graph(id='spectrogram', animate=False, config={'displayModeBar': False}),
+            dcc.Graph(id='spectrogram', animate=False,
+                      config={'displayModeBar': False}),
             dbc.Row([
                 dbc.Col([
                     html.P('Frequency bins'),
@@ -95,8 +96,7 @@ app.layout = dbc.Container([
                         {'label': 'Bartlett-Hann', 'value': 'barthann'}
                     ], value='hamming', clearable=False)
                 ])
-            ]),
-            
+            ])
         ], md=4)
     ], no_gutters=True),
     html.Div([
@@ -128,11 +128,11 @@ def update_live_data(n, token, last_time):
     called = datetime.now(timezone.utc)
     # 1 sec delay so server has time to add live data
     end_time = called - timedelta(seconds=1)
-    
+
     # Initialization and lag prevention
     if last_time is None or strptime_fix(last_time) - end_time > timedelta(seconds=2):
         last_time = end_time.isoformat()
-    
+
     # Check if token is still valid
     token = update_token(token, 'test', 'smtamu_group',
                          'parthdave', 'parth1234')
@@ -179,9 +179,10 @@ def update_live_data(n, token, last_time):
 def update_graph(data, keep_last):
     if data is None or not data['val_list']:
         raise PreventUpdate
-    return {'x': [data['time_list']], 'y':[data['val_list']]}, [0], keep_last
+    return {'x': [data['time_list']], 'y': [data['val_list']]}, [0], keep_last
 
 # Callback that calculates and plots FFT
+
 
 @app.callback(Output('fft-graph', 'figure'),
               Input('intermediate-data', 'data'))
@@ -199,13 +200,15 @@ def update_fft(data):
 
 # Callback that calculates and plots spectrogram
 
+
 @app.callback(Output('spectrogram', 'figure'),
               Input('intermediate-data', 'data'),
               State('nperseg', 'value'))
 def update_spec(data, nperseg):
     if data is None or not data['val_list']:
         raise PreventUpdate
-    f, t, Sxx = signal.spectrogram(np.asarray(data['val_list']), 1024, nperseg=nperseg, window='hamming')
+    f, t, Sxx = signal.spectrogram(np.asarray(
+        data['val_list']), 1024, nperseg=nperseg, window='hamming')
     fig = go.Figure(data=go.Heatmap(z=Sxx, y=f, x=t))
     fig.update_layout(title={
         'text': 'Spectrogram, last second',
@@ -214,6 +217,7 @@ def update_spec(data, nperseg):
     })
     # fig.update_yaxes(type="log")
     return fig
+
 
 if __name__ == '__main__':
     app.run_server(debug=True)
