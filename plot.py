@@ -60,7 +60,7 @@ app.layout = dbc.Container([
                 label='Show last samples',
                 min=100,
                 max=5000,
-                value=1000
+                value=1024
             )
         ], md=4),
         dbc.Col(
@@ -188,7 +188,7 @@ def update_graph(data, keep_last):
 def update_fft(data):
     if data is None or not data['val_list']:
         raise PreventUpdate
-    fig = px.line(x=np.fft.rfftfreq(len(data['val_list']), d=1/1000),
+    fig = px.line(x=np.fft.rfftfreq(len(data['val_list']), d=1/1024),
                   y=np.abs(np.fft.rfft(data['val_list'])), log_x=True)
     fig.update_layout(title={
         'text': 'FFT, last second',
@@ -205,7 +205,7 @@ def update_fft(data):
 def update_spec(data, nperseg):
     if data is None or not data['val_list']:
         raise PreventUpdate
-    f, t, Sxx = signal.spectrogram(np.asarray(data['val_list']), 1000, nperseg=nperseg, window='hamming')
+    f, t, Sxx = signal.spectrogram(np.asarray(data['val_list']), 1024, nperseg=nperseg, window='hamming')
     fig = go.Figure(data=go.Heatmap(z=Sxx, y=f, x=t))
     fig.update_layout(title={
         'text': 'Spectrogram, last second',

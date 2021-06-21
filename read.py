@@ -1,13 +1,11 @@
-import math
 from datetime import datetime, timedelta, timezone
 import requests
 from auth import update_token
 import nidaqmx
-# import matplotlib.pyplot as plt
 
 ENDPOINT = "https://smtamu.cesmii.net/graphql"
 
-mutation = """
+MUTATION = """
 mutation AddData($id: BigInt, $entries: [TimeSeriesEntryInput]) {
   replaceTimeSeriesRange(
     input: {
@@ -20,17 +18,19 @@ mutation AddData($id: BigInt, $entries: [TimeSeriesEntryInput]) {
 }
 """
 
-def read_data(sample_rate:int, duration:int, channel:str, id:int):
+
+def read_data(sample_rate: int, duration: int, channel: str, id: int) -> None:
     token = ''
-    samples_to_take = math.floor(sample_rate * duration)
+    samples_to_take = sample_rate * duration
     time_step = timedelta(seconds=1/sample_rate)
     with requests.Session() as s:
         with nidaqmx.Task() as task:
             task.ai_channels.add_ai_voltage_chan(channel)
-            task.timing.cfg_samp_clk_timing(sample_rate, sample_mode=nidaqmx.constants.AcquisitionType.CONTINUOUS)
-            task.timing.samp_quant_samp_per_chan = 200000 # Supposed to set the buffer, not sure if actually takes effect
+            task.timing.cfg_samp_clk_timing(
+                sample_rate, sample_mode=nidaqmx.constants.AcquisitionType.CONTINUOUS)
+            # Supposed to set the buffer, not sure if actually takes effect
+            task.timing.samp_quant_samp_per_chan = 200000
             task.start()
-            # x = list()
             ts = datetime.now(timezone.utc)
             while samples_to_take > 0:
                 # Take 1 second of samples
@@ -48,10 +48,11 @@ def read_data(sample_rate:int, duration:int, channel:str, id:int):
                     })
                     ts += time_step
                 # Test JWT validity
-                token = update_token(token, 'test', 'smtamu_group', 'parthdave', 'parth1234')
+                token = update_token(
+                    token, 'test', 'smtamu_group', 'parthdave', 'parth1234')
                 # Batch upload
                 r = s.post(ENDPOINT, json={
-                    "query": mutation,
+                    "query": MUTATION,
                     "variables": {
                         "id": id,
                         "entries": points
@@ -60,15 +61,8 @@ def read_data(sample_rate:int, duration:int, channel:str, id:int):
                 # Receive response
                 print(datetime.now(), r.json(), 'Elapsed', r.elapsed)
                 samples_to_take = samples_to_take - sample_rate
-                # Plot locally
-                # x.extend(buf)
-                # plt.cla()
-                # plt.plot(x)
-                # plt.pause(0.01)
             task.stop()
-    
+
+
 if __name__ == '__main__':
-    # plt.ion()
-    read_data(1000, 60, 'cDAQ3Mod4/ai0', 5356)
-    # plt.show(block=True)
-    
+    read_data(1024, 60, 'cDAQ3Mod4/ai0', 5356)
