@@ -1,9 +1,11 @@
-from auth import update_token
-from datetime import datetime, timedelta, timezone
 import time
+from datetime import datetime, timedelta, timezone
+
 import numpy as np
 import pandas as pd
 import requests
+
+from auth import update_token
 
 ENDPOINT = "https://smtamu.cesmii.net/graphql"
 

@@ -1,7 +1,10 @@
 from datetime import datetime, timedelta, timezone
-import requests
-from auth import update_token
+
 import nidaqmx
+import requests
+from nidaqmx.constants import AcquisitionType
+
+from auth import update_token
 
 ENDPOINT = "https://smtamu.cesmii.net/graphql"
 
@@ -27,7 +30,7 @@ def read_data(sample_rate: int, duration: int, channel: str, id: int) -> None:
         with nidaqmx.Task() as task:
             task.ai_channels.add_ai_voltage_chan(channel)
             task.timing.cfg_samp_clk_timing(
-                sample_rate, sample_mode=nidaqmx.constants.AcquisitionType.CONTINUOUS)
+                sample_rate, sample_mode=AcquisitionType.CONTINUOUS)
             # Supposed to set the buffer, not sure if actually takes effect
             task.timing.samp_quant_samp_per_chan = 200000
             task.start()

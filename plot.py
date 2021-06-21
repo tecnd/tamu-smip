@@ -1,18 +1,20 @@
-# Dash imports
+# Standard library imports
+from datetime import datetime, timedelta, timezone
+
+# External imports
 import dash
-import dash_core_components as dcc
-import dash_html_components as html
 import dash_bootstrap_components as dbc
+import dash_core_components as dcc
 import dash_daq as daq
-from dash.dependencies import Input, Output, State
-from dash.exceptions import PreventUpdate
+import dash_html_components as html
+import numpy as np
 import plotly.express as px
 import plotly.graph_objects as go
-# Library imports
 import requests
-from datetime import datetime, timedelta, timezone
-import numpy as np
+from dash.dependencies import Input, Output, State
+from dash.exceptions import PreventUpdate
 from scipy import signal
+
 # Local imports
 from auth import update_token
 from strptime_fix import strptime_fix
@@ -52,19 +54,20 @@ app.layout = dbc.Container([
                 'layout': {
                     'title': 'Time portrait',
                     'xaxis': {'rangemode': 'tozero'},
-                    'yaxis': {'rangemode': 'tozero'}
+                    'yaxis': {'rangemode': 'tozero'},
+                    'margin': {'l': 10, 'r': 10, 't': 50, 'b': 50}
                 }
             }, config={'displayModeBar': False}),
-            daq.NumericInput(
+            daq.NumericInput(  # pylint: disable=not-callable
                 id='keep_last',
                 label='Show last samples',
                 min=100,
                 max=5000,
                 value=1024
             )
-        ], md=4),
+        ], lg=4),
         dbc.Col(
-            dcc.Graph(id='fft-graph', animate=False, config={'displayModeBar': False}), md=4
+            dcc.Graph(id='fft-graph', animate=False, config={'displayModeBar': False}), lg=4
         ),
         dbc.Col([
             dcc.Graph(id='spectrogram', animate=False,
@@ -72,7 +75,7 @@ app.layout = dbc.Container([
             dbc.Row([
                 dbc.Col([
                     html.P('Frequency bins'),
-                    daq.NumericInput(
+                    daq.NumericInput(  # pylint: disable=not-callable
                         id='nperseg',
                         min=1,
                         max=1000,
@@ -97,7 +100,7 @@ app.layout = dbc.Container([
                     ], value='hamming', clearable=False)
                 ])
             ])
-        ], md=4)
+        ], lg=4)
     ], no_gutters=True),
     html.Div([
         # Timer to get new data every second
@@ -195,7 +198,7 @@ def update_fft(data):
         'text': 'FFT, last second',
         'x': 0.5,
         'xanchor': 'center'
-    }, xaxis_rangemode='tozero', yaxis_rangemode='tozero')
+    }, xaxis_rangemode='tozero', xaxis_title='Frequency (Hz)', yaxis_rangemode='tozero', yaxis_title='', margin={'l': 10, 'r': 10, 't': 50, 'b': 50})
     return fig
 
 # Callback that calculates and plots spectrogram
@@ -209,12 +212,12 @@ def update_spec(data, nperseg):
         raise PreventUpdate
     f, t, Sxx = signal.spectrogram(np.asarray(
         data['val_list']), 1024, nperseg=nperseg, window='hamming')
-    fig = go.Figure(data=go.Heatmap(z=Sxx, y=f, x=t))
+    fig = go.Figure(data=go.Heatmap(z=Sxx, y=f, x=t))  # type: ignore
     fig.update_layout(title={
         'text': 'Spectrogram, last second',
         'x': 0.5,
         'xanchor': 'center'
-    })
+    }, margin={'l': 10, 'r': 10, 't': 50, 'b': 50})
     # fig.update_yaxes(type="log")
     return fig
 
