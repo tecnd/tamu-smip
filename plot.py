@@ -1,4 +1,5 @@
 # Standard library imports
+import logging
 from datetime import datetime, timedelta, timezone
 
 # External imports
@@ -20,6 +21,7 @@ from auth import update_token
 from strptime_fix import strptime_fix
 
 # Define constants
+DEBUG=True
 ENDPOINT = "https://smtamu.cesmii.net/graphql"
 QUERY = '''
 query GetData($startTime: Datetime, $endTime: Datetime) {
@@ -34,6 +36,8 @@ query GetData($startTime: Datetime, $endTime: Datetime) {
   }
 }
 '''
+# Set up logging
+logging.basicConfig(filename='plot.log', format='%(asctime)s %(levelname)s %(message)s', filemode='w', level=logging.DEBUG)
 
 # All requests go through a single session for network efficiency
 s = requests.Session()
@@ -140,7 +144,7 @@ def update_live_data(n, token, last_time):
     token = update_token(token, 'test', 'smtamu_group',
                          'parthdave', 'parth1234')
     # Query data from SMIP
-    print(datetime.now(), 'start_time', last_time, 'end_time', end_time)
+    logging.info(f'start_time {last_time} end_time {end_time}')
     r = s.post(ENDPOINT, json={
         "query": QUERY,
         "variables": {
@@ -223,4 +227,4 @@ def update_spec(data, nperseg):
 
 
 if __name__ == '__main__':
-    app.run_server(debug=True)
+    app.run_server(debug=DEBUG)
