@@ -1,4 +1,5 @@
 import time
+import logging
 from datetime import datetime, timedelta, timezone
 
 import numpy as np
@@ -46,7 +47,7 @@ def sin_plot(freq1: float, freq2: float) -> None:
                     "entries": payload
                 }
             }, headers={"Authorization": f"Bearer {token}"})
-            print(r.elapsed, r.json())
+            logging.info(str(r.elapsed) + ' ' + str(r.json()))
             t += 1024
             freq2 += 10
             if freq2 > 500:
@@ -56,4 +57,5 @@ def sin_plot(freq1: float, freq2: float) -> None:
 
 
 if __name__ == "__main__":
+    logging.basicConfig(filename='sin_plotter.log', format='%(asctime)s %(levelname)s %(message)s', filemode='w', level=logging.DEBUG)
     sin_plot(100, 80)
