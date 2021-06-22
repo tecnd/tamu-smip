@@ -154,7 +154,7 @@ def update_live_data(n, token, last_time):
     }, headers={"Authorization": f"Bearer {token}"}, timeout=1)
     r.raise_for_status()
     data = r.json()['data']['getRawHistoryDataWithSampling']
-    print(datetime.now(), 'Responses', len(data))
+    logging.info('Got %s responses', len(data))
     # Take timestamps and values out of response, format
 
     # Used for measuring performance
@@ -172,8 +172,8 @@ def update_live_data(n, token, last_time):
 
     # Used for measuring performance
     data_processed = datetime.now(timezone.utc)
-    print(datetime.now(), 'Total', data_processed - called, 'Query', r.elapsed,
-          'Processing', data_processed - start_processing)
+    logging.info('Total %s Query %s Processing %s', data_processed - called, r.elapsed,
+          data_processed - start_processing)
 
     return {'time_list': time_list, 'val_list': val_list}, token, end_time.isoformat(), f'Last updated {end_time.astimezone()}, received {len(data)} samples in {(data_processed - called).total_seconds()} seconds'
 
