@@ -1,5 +1,5 @@
 import sys
-from auth import update_token
+from smip_io import update_token
 from datetime import datetime, timedelta, timezone
 
 

@@ -1,27 +1,12 @@
-import time
 import logging
+import time
 from datetime import datetime, timedelta, timezone
 
 import numpy as np
 import pandas as pd
 import requests
 
-from auth import update_token
-
-ENDPOINT = "https://smtamu.cesmii.net/graphql"
-
-MUTATION = """
-mutation AddData($id: BigInt, $entries: [TimeSeriesEntryInput]) {
-  replaceTimeSeriesRange(
-    input: {
-        attributeOrTagId: $id,
-        entries: $entries
-    }
-  ) {
-    json
-  }
-}
-"""
+from smip_io import ENDPOINT, MUTATION_ADDDATA, update_token
 
 
 def sin_plot(freq1: float, freq2: float) -> None:
@@ -41,7 +26,7 @@ def sin_plot(freq1: float, freq2: float) -> None:
             payload = [{'timestamp': ts.isoformat(), 'value': str(val), 'status': 0}
                        for ts, val in zip(time_range, val_range)]
             r = s.post(ENDPOINT, json={
-                "query": MUTATION,
+                "query": MUTATION_ADDDATA,
                 "variables": {
                     "id": 5356,
                     "entries": payload
@@ -57,5 +42,6 @@ def sin_plot(freq1: float, freq2: float) -> None:
 
 
 if __name__ == "__main__":
-    logging.basicConfig(filename='sin_plotter.log', format='%(asctime)s %(levelname)s %(message)s', filemode='w', level=logging.DEBUG)
+    logging.basicConfig(filename='sin_plotter.log',
+                        format='%(asctime)s %(levelname)s %(message)s', filemode='w', level=logging.DEBUG)
     sin_plot(100, 80)

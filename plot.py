@@ -17,27 +17,15 @@ from dash.exceptions import PreventUpdate
 from scipy import signal
 
 # Local imports
-from auth import update_token
+from smip_io import ENDPOINT, QUERY_GETDATA, update_token
 from strptime_fix import strptime_fix
 
 # Define constants
-DEBUG=True
-ENDPOINT = "https://smtamu.cesmii.net/graphql"
-QUERY = '''
-query GetData($startTime: Datetime, $endTime: Datetime) {
-  getRawHistoryDataWithSampling(
-    endTime: $endTime
-    startTime: $startTime
-    ids: "5356"
-    maxSamples: 0
-  ) {
-    floatvalue
-    ts
-  }
-}
-'''
+DEBUG = True
+
 # Set up logging
-logging.basicConfig(filename='plot.log', format='%(asctime)s %(levelname)s %(message)s', filemode='w', level=logging.DEBUG)
+logging.basicConfig(filename='plot.log', format='%(asctime)s %(levelname)s %(message)s',
+                    filemode='w', level=logging.DEBUG)
 
 # All requests go through a single session for network efficiency
 s = requests.Session()
@@ -120,8 +108,6 @@ app.layout = dbc.Container([
     ])
 ], fluid=True)
 
-# Callback to get data every second
-
 
 @app.callback(Output('intermediate-data', 'data'),
               Output('jwt', 'data'),
@@ -132,6 +118,7 @@ app.layout = dbc.Container([
               State('last_time', 'data')
               )
 def update_live_data(n, token, last_time):
+    """Callback to get data every second."""
     called = datetime.now(timezone.utc)
     # 1 sec delay so server has time to add live data
     end_time = called - timedelta(seconds=1)
@@ -146,7 +133,7 @@ def update_live_data(n, token, last_time):
     # Query data from SMIP
     logging.info(f'start_time {last_time} end_time {end_time}')
     r = s.post(ENDPOINT, json={
-        "query": QUERY,
+        "query": QUERY_GETDATA,
         "variables": {
             "endTime": end_time.isoformat(),
             "startTime": last_time
@@ -173,27 +160,26 @@ def update_live_data(n, token, last_time):
     # Used for measuring performance
     data_processed = datetime.now(timezone.utc)
     logging.info('Total %s Query %s Processing %s', data_processed - called, r.elapsed,
-          data_processed - start_processing)
+                 data_processed - start_processing)
 
-    return {'time_list': time_list, 'val_list': val_list}, token, end_time.isoformat(), f'Last updated {end_time.astimezone()}, received {len(data)} samples in {(data_processed - called).total_seconds()} seconds'
-
-# Callback that graphs the data
+    return {'time_list': time_list, 'val_list': val_list}, token, end_time.isoformat(), \
+        f'Last updated {end_time.astimezone()}, received {len(data)} samples in {(data_processed - called).total_seconds()} seconds'
 
 
 @app.callback(Output('live-update-graph', 'extendData'),
               Input('intermediate-data', 'data'),
               State('keep_last', 'value'))
 def update_graph(data, keep_last):
+    """Callback that graphs the data."""
     if data is None or not data['val_list']:
         raise PreventUpdate
     return {'x': [data['time_list']], 'y': [data['val_list']]}, [0], keep_last
-
-# Callback that calculates and plots FFT
 
 
 @app.callback(Output('fft-graph', 'figure'),
               Input('intermediate-data', 'data'))
 def update_fft(data):
+    """Callback that calculates and plots FFT."""
     if data is None or not data['val_list']:
         raise PreventUpdate
     fig = px.line(x=np.fft.rfftfreq(len(data['val_list']), d=1/1024),
@@ -205,13 +191,12 @@ def update_fft(data):
     }, xaxis_rangemode='tozero', xaxis_title='Frequency (Hz)', yaxis_rangemode='tozero', yaxis_title='', margin={'l': 10, 'r': 10, 't': 50, 'b': 50})
     return fig
 
-# Callback that calculates and plots spectrogram
-
 
 @app.callback(Output('spectrogram', 'figure'),
               Input('intermediate-data', 'data'),
               State('nperseg', 'value'))
 def update_spec(data, nperseg):
+    """Callback that calculates and plots spectrogram."""
     if data is None or not data['val_list']:
         raise PreventUpdate
     f, t, Sxx = signal.spectrogram(np.asarray(
