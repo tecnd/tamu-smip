@@ -22,6 +22,7 @@ from strptime_fix import strptime_fix
 
 # Define constants
 DEBUG = True
+GRAPH_MARGIN = {'l': 40, 'r': 0, 't': 50, 'b': 50}
 
 # Set up logging
 logging.basicConfig(filename='plot.log', format='%(asctime)s %(levelname)s %(message)s',
@@ -47,13 +48,14 @@ app.layout = dbc.Container([
                     'title': 'Time portrait',
                     'xaxis': {'rangemode': 'tozero'},
                     'yaxis': {'rangemode': 'tozero'},
-                    'margin': {'l': 10, 'r': 10, 't': 50, 'b': 50}
+                    'margin': GRAPH_MARGIN
                 }
             }, config={'displayModeBar': False}),
             daq.NumericInput(  # pylint: disable=not-callable
                 id='keep_last',
                 label='Show last samples',
                 min=10,
+                max=10000,
                 value=1024
             )
         ], lg=4),
@@ -70,7 +72,7 @@ app.layout = dbc.Container([
                         id='nperseg',
                         min=1,
                         max=1000,
-                        value=500
+                        value=250
                     )
                 ]),
                 dbc.Col([
@@ -150,20 +152,23 @@ def update_live_data(n, token, last_time):
     # SMIP always returns one entry before the start time, we don't need this
     if data:
         data.pop(0)
-    # Ideally this would work, but if timestamp is at 0 microseconds then server
-    # returns time with %S%z instead of %S.%f%z, which breaks things
-    #   UPDATE: Marked as SMIP bug, hopefully fixed some day
-    # time_list = [datetime.strptime(i['ts'], '%Y-%m-%dT%H:%M:%S.%f%z') for i in data]
-    time_list = [strptime_fix(i['ts']) for i in data]
+
+    # Unpack data
+    time_list = [i['ts'] for i in data]
     val_list = [i['floatvalue'] for i in data]
+
+    # Measure sampling rate
+    rate = float('nan')
+    if len(time_list) > 1:
+        rate = (strptime_fix(time_list[1]) - strptime_fix(time_list[0])).total_seconds()
 
     # Used for measuring performance
     data_processed = datetime.now(timezone.utc)
     logging.info('Total %s Query %s Processing %s', data_processed - called, r.elapsed,
                  data_processed - start_processing)
 
-    return {'time_list': time_list, 'val_list': val_list}, token, end_time.isoformat(), \
-        f'Last updated {end_time.astimezone()}, received {len(data)} samples in {(data_processed - called).total_seconds()} seconds'
+    return {'time_list': time_list, 'val_list': val_list, 'rate': rate}, token, end_time.isoformat(), \
+        f'Last updated {end_time.astimezone()}, received {len(data)} samples in {(data_processed - called).total_seconds()} seconds, sampling rate {1/rate}Hz'
 
 
 @app.callback(Output('live-update-graph', 'extendData'),
@@ -180,33 +185,34 @@ def update_graph(data, keep_last):
               Input('intermediate-data', 'data'))
 def update_fft(data):
     """Callback that calculates and plots FFT."""
-    if data is None or not data['val_list']:
+    if data is None or data['rate'] is None:
         raise PreventUpdate
-    fig = px.line(x=np.fft.rfftfreq(len(data['val_list']), d=1/1024),
-                  y=np.abs(np.fft.rfft(data['val_list'])), log_x=True)
+    fig = px.line(x=np.fft.rfftfreq(len(data['val_list']), d=data['rate'])[10:],
+                  y=np.abs(np.fft.rfft(data['val_list']))[10:], log_x=False)
     fig.update_layout(title={
         'text': 'FFT, last second',
         'x': 0.5,
         'xanchor': 'center'
-    }, xaxis_rangemode='tozero', xaxis_title='Frequency (Hz)', yaxis_rangemode='tozero', yaxis_title='', margin={'l': 10, 'r': 10, 't': 50, 'b': 50})
+    }, xaxis_title='Frequency (Hz)', yaxis_rangemode='tozero', yaxis_title='', margin=GRAPH_MARGIN)
     return fig
 
 
 @app.callback(Output('spectrogram', 'figure'),
               Input('intermediate-data', 'data'),
-              State('nperseg', 'value'))
-def update_spec(data, nperseg):
+              State('nperseg', 'value'),
+              State('window', 'value'))
+def update_spec(data, nperseg, window):
     """Callback that calculates and plots spectrogram."""
-    if data is None or not data['val_list']:
+    if data is None or data['rate'] is None:
         raise PreventUpdate
     f, t, Sxx = signal.spectrogram(np.asarray(
-        data['val_list']), 1024, nperseg=nperseg, window='hamming')
+        data['val_list']), round(1/data['rate']), nperseg=nperseg, window=window)
     fig = go.Figure(data=go.Heatmap(z=Sxx, y=f, x=t))  # type: ignore
     fig.update_layout(title={
         'text': 'Spectrogram, last second',
         'x': 0.5,
         'xanchor': 'center'
-    }, margin={'l': 10, 'r': 10, 't': 50, 'b': 50})
+    }, margin=GRAPH_MARGIN)
     # fig.update_yaxes(type="log")
     return fig
 

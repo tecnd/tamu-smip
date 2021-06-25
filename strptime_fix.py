@@ -1,8 +1,8 @@
 from datetime import datetime
-'''
-Temporary fix for missing microsecond field in GraphQL response
-'''
-def strptime_fix(ts:str) -> datetime:
+
+
+def strptime_fix(ts: str) -> datetime:
+    '''Temporary fix for missing microsecond field in GraphQL response.'''
     fmt = ''
     if len(ts) > 26:
         fmt = '%Y-%m-%dT%H:%M:%S.%f%z'
@@ -11,4 +11,3 @@ def strptime_fix(ts:str) -> datetime:
     else:
         raise ValueError('Unrecognized timestamp: ' + ts)
     return datetime.strptime(ts, fmt)
-    
