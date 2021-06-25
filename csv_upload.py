@@ -1,6 +1,9 @@
 import sys
-from smip_io import update_token
 from datetime import datetime, timedelta, timezone
+
+import requests
+
+from smip_io import ENDPOINT, MUTATION_ADDDATA, get_token
 
 
 def csv_upload(file, rate: int) -> None:
@@ -8,17 +11,36 @@ def csv_upload(file, rate: int) -> None:
     timestamp = datetime.now(timezone.utc)
     inc = timedelta(seconds=1/rate)
     buf = list()
+    token = get_token("test", "smtamu_group", "parthdave", "parth1234")
     with open(file, 'r') as f:
-        for val in f:
-            data = {'timestamp': timestamp.isoformat(),
-                    'val': val.strip(),
-                    'status': 0}
-            buf.append(data)
-            if len(buf) > 5000:
-                # TODO: upload data and clear buf
-                pass
-            timestamp += inc
+        with requests.Session() as s:
+            for val in f:
+                data = {'timestamp': timestamp.isoformat(),
+                        'value': val.strip(),
+                        'status': 0}
+                buf.append(data)
+                if len(buf) > 5000:
+                    r = s.post(ENDPOINT, json={
+                        'query': MUTATION_ADDDATA,
+                        'variables': {
+                            'id': 5356,
+                            'entries': buf
+                        }
+                    }, headers={"Authorization": f"Bearer {token}"})
+                    r.raise_for_status()
+                    buf.clear()
+                timestamp += inc
+            if buf:
+                r = s.post(ENDPOINT, json={
+                    'query': MUTATION_ADDDATA,
+                    'variables': {
+                        'id': 5356,
+                        'entries': buf
+                    }
+                }, headers={"Authorization": f"Bearer {token}"})
+                r.raise_for_status()
+                buf.clear()
 
 
 if __name__ == "__main__":
-    csv_upload(sys.argv[1], 1000)
+    csv_upload(sys.argv[1], int(sys.argv[2]))

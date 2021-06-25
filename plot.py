@@ -53,8 +53,7 @@ app.layout = dbc.Container([
             daq.NumericInput(  # pylint: disable=not-callable
                 id='keep_last',
                 label='Show last samples',
-                min=100,
-                max=5000,
+                min=10,
                 value=1024
             )
         ], lg=4),
@@ -124,7 +123,8 @@ def update_live_data(n, token, last_time):
     end_time = called - timedelta(seconds=1)
 
     # Initialization and lag prevention
-    if last_time is None or strptime_fix(last_time) - end_time > timedelta(seconds=2):
+    if last_time is None or end_time - strptime_fix(last_time) > timedelta(seconds=2):
+        logging.warning('Falling behind!')
         last_time = end_time.isoformat()
 
     # Check if token is still valid
