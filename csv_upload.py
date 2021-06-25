@@ -1,4 +1,5 @@
 import sys
+import time
 from datetime import datetime, timedelta, timezone
 
 import requests
@@ -14,12 +15,14 @@ def csv_upload(file, rate: int) -> None:
     token = get_token("test", "smtamu_group", "parthdave", "parth1234")
     with open(file, 'r') as f:
         with requests.Session() as s:
+            now = datetime.now()
+            future = now + timedelta(seconds=1)
             for val in f:
                 data = {'timestamp': timestamp.isoformat(),
                         'value': val.strip(),
                         'status': 0}
                 buf.append(data)
-                if len(buf) > 5000:
+                if len(buf) >= rate:
                     r = s.post(ENDPOINT, json={
                         'query': MUTATION_ADDDATA,
                         'variables': {
@@ -28,7 +31,11 @@ def csv_upload(file, rate: int) -> None:
                         }
                     }, headers={"Authorization": f"Bearer {token}"})
                     r.raise_for_status()
+                    print(r.elapsed, r.json())
                     buf.clear()
+                    time.sleep(
+                        max((future - datetime.now()).total_seconds(), 0))
+                    future += timedelta(seconds=1)
                 timestamp += inc
             if buf:
                 r = s.post(ENDPOINT, json={
