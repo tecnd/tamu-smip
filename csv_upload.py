@@ -7,7 +7,7 @@ import requests
 from smip_io import ENDPOINT, MUTATION_ADDDATA, get_token
 
 
-def csv_upload(file, rate: int) -> None:
+def csv_upload(file, rate: int, id: int) -> None:
     """Reads values from a csv file, adds timestamps at the rate specified, and uploads to SMIP."""
     timestamp = datetime.now(timezone.utc)
     inc = timedelta(seconds=1/rate)
@@ -26,7 +26,7 @@ def csv_upload(file, rate: int) -> None:
                     r = s.post(ENDPOINT, json={
                         'query': MUTATION_ADDDATA,
                         'variables': {
-                            'id': 5356,
+                            'id': id,
                             'entries': buf
                         }
                     }, headers={"Authorization": f"Bearer {token}"})
@@ -41,7 +41,7 @@ def csv_upload(file, rate: int) -> None:
                 r = s.post(ENDPOINT, json={
                     'query': MUTATION_ADDDATA,
                     'variables': {
-                        'id': 5356,
+                        'id': id,
                         'entries': buf
                     }
                 }, headers={"Authorization": f"Bearer {token}"})
@@ -50,4 +50,4 @@ def csv_upload(file, rate: int) -> None:
 
 
 if __name__ == "__main__":
-    csv_upload(sys.argv[1], int(sys.argv[2]))
+    csv_upload(sys.argv[1], int(sys.argv[2]), int(sys.argv[3]))
