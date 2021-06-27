@@ -84,15 +84,16 @@ mutation AddData($id: BigInt, $entries: [TimeSeriesEntryInput]) {
 
 # GraphQL query to get data from SMIP
 QUERY_GETDATA = """
-query GetData($startTime: Datetime, $endTime: Datetime) {
+query GetData($startTime: Datetime, $endTime: Datetime, $ids: [BigInt]) {
   getRawHistoryDataWithSampling(
     endTime: $endTime
     startTime: $startTime
-    ids: "5356"
+    ids: $ids
     maxSamples: 0
   ) {
     floatvalue
     ts
+    id
   }
 }
 """

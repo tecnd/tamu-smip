@@ -11,7 +11,7 @@ import numpy as np
 # import plotly.express as px
 import plotly.graph_objects as go
 import requests
-from dash.dependencies import Input, Output, State
+from dash.dependencies import MATCH, Input, Output, State
 from dash.exceptions import PreventUpdate
 from scipy import signal
 
@@ -34,7 +34,7 @@ s = requests.Session()
 
 def _graphs(i: int) -> dbc.Col:
     return dbc.Col([
-        dcc.Graph(id=f'time-graph{i}', animate=False, figure={
+        dcc.Graph(id={'type': 'time-graph', 'index': i}, animate=False, figure={
             'data': [{'x': [], 'y': []}],
             'layout': {
                 'title': 'Time portrait',
@@ -43,7 +43,7 @@ def _graphs(i: int) -> dbc.Col:
                 'margin': GRAPH_MARGIN
             }
         }, style={'height': '30vh'}, config={'displayModeBar': False}),
-        dcc.Graph(id=f'fft-graph{i}', animate=False, figure={
+        dcc.Graph(id={'type': 'fft-graph', 'index': i}, animate=False, figure={
             'data': [{'x': [], 'y': []}],
             'layout': {
                 'title': {
@@ -56,22 +56,27 @@ def _graphs(i: int) -> dbc.Col:
                 'margin': GRAPH_MARGIN
             }
         }, style={'height': '30vh'}, config={'displayModeBar': False}),
-        dcc.Graph(id=f'spectrogram{i}', animate=False, style={'height': '30vh'},
+        dcc.Graph(id={'type': 'spectrogram', 'index': i}, animate=False, style={'height': '30vh'},
                   config={'displayModeBar': False})
     ], lg=4)
 
 
-def _settings(i: int) -> dbc.Col:
+def _settings(i: int, id: int) -> dbc.Col:
     return dbc.Col(
         dbc.FormGroup([
-            dbc.Label('Show last samples', html_for=f'keep_last{i}'),
-            dbc.Input(id=f'keep_last{i}', type="number",
+            dbc.Label('ID', html_for=f'id{i}'),
+            dbc.Input(id=f'id{i}', type="number",
+                      min=0, max=10000, value=id),
+            dbc.Label('Show last samples', html_for={
+                      'type': 'keep_last', 'index': i}),
+            dbc.Input(id={'type': 'keep_last', 'index': i}, type="number",
                       min=10, max=10000, value=1024),
-            dbc.Label('Frequency bins', html_for=f'nperseg{i}'),
-            dbc.Input(id=f'nperseg{i}', type="number",
+            dbc.Label('Frequency bins', html_for={
+                      'type': 'nperseg', 'index': i}),
+            dbc.Input(id={'type': 'nperseg', 'index': i}, type="number",
                       min=1, max=1000, value=250),
-            dbc.Label('Window type', html_for=f'window{i}'),
-            dbc.Select(id=f'window{i}', options=[
+            dbc.Label('Window type', html_for={'type': 'window', 'index': i}),
+            dbc.Select(id={'type': 'window', 'index': i}, options=[
                 {'label': 'Boxcar', 'value': 'boxcar'},
                 {'label': 'Triangular', 'value': 'triang'},
                 {'label': 'Blackman', 'value': 'blackman'},
@@ -106,7 +111,7 @@ app.layout = dbc.Container([
         _graphs(1),
         _graphs(2),
         dbc.Col([
-            dbc.Row([_settings(1), _settings(2)]),
+            dbc.Row([_settings(1, 5356), _settings(2, 5366)]),
             html.Hr(),
             html.P('Other stuff goes here')
         ], lg=4)
@@ -121,20 +126,24 @@ app.layout = dbc.Container([
         # Store JWT in local memory, saved across browser closes
         dcc.Store(id='jwt', storage_type='local', data=''),
         dcc.Store(id='last_time'),
-        dcc.Store(id='intermediate-data')
+        dcc.Store(id={'type': 'intermediate-data', 'index': 1}),
+        dcc.Store(id={'type': 'intermediate-data', 'index': 2})
     ])
 ], fluid=True)
 
 
-@app.callback(Output('intermediate-data', 'data'),
+@app.callback(Output({'type': 'intermediate-data', 'index': 1}, 'data'),
+              Output({'type': 'intermediate-data', 'index': 2}, 'data'),
               Output('jwt', 'data'),
               Output('last_time', 'data'),
               Output('info', 'children'),
               Input('interval-component', 'n_intervals'),
               State('jwt', 'data'),
-              State('last_time', 'data')
+              State('last_time', 'data'),
+              State('id1', 'value'),
+              State('id2', 'value')
               )
-def update_live_data(n, token, last_time):
+def update_live_data(n, token, last_time, id1, id2):
     """Callback to get data every second."""
     called = datetime.now(timezone.utc)
     # 1 sec delay so server has time to add live data
@@ -154,7 +163,8 @@ def update_live_data(n, token, last_time):
         "query": QUERY_GETDATA,
         "variables": {
             "endTime": end_time.isoformat(),
-            "startTime": last_time
+            "startTime": last_time,
+            "ids": [id1, id2]
         }
     }, headers={"Authorization": f"Bearer {token}"}, timeout=1)
     r.raise_for_status()
@@ -170,27 +180,30 @@ def update_live_data(n, token, last_time):
         data.pop(0)
 
     # Unpack data
-    time_list = [i['ts'] for i in data]
-    val_list = [i['floatvalue'] for i in data]
+    def unpack(id: int) -> dict:
+        """Unpacks return data into time and value lists"""
+        time_list = [i['ts'] for i in data if int(i['id']) == id]
+        val_list = [i['floatvalue'] for i in data if int(i['id']) == id]
 
-    # Measure sampling rate
-    rate = float('nan')
-    if len(time_list) > 1:
-        rate = (strptime_fix(time_list[1])
-                - strptime_fix(time_list[0])).total_seconds()
+        # Measure sampling rate
+        rate = float('nan')
+        if len(time_list) > 1:
+            rate = (strptime_fix(time_list[1])
+                    - strptime_fix(time_list[0])).total_seconds()
+        return {'time_list': time_list, 'val_list': val_list, 'rate': rate}
 
     # Used for measuring performance
     data_processed = datetime.now(timezone.utc)
     logging.info('Total %s Query %s Processing %s', data_processed - called, r.elapsed,
                  data_processed - start_processing)
 
-    return {'time_list': time_list, 'val_list': val_list, 'rate': rate}, token, end_time.isoformat(), \
-        f'Last updated {end_time.astimezone()}, received {len(data)} samples in {(data_processed - called).total_seconds()} seconds, sampling rate {1/rate}Hz'
+    return unpack(id1), unpack(id2), token, end_time.isoformat(), \
+        f'Last updated {end_time.astimezone()}, received {len(data)} samples in {(data_processed - called).total_seconds()} seconds'
 
 
-@app.callback(Output('time-graph1', 'extendData'),
-              Input('intermediate-data', 'data'),
-              State('keep_last1', 'value'))
+@app.callback(Output({'type': 'time-graph', 'index': MATCH}, 'extendData'),
+              Input({'type': 'intermediate-data', 'index': MATCH}, 'data'),
+              State({'type': 'keep_last', 'index': MATCH}, 'value'))
 def update_graph(data, keep_last):
     """Callback that graphs the data."""
     if data is None or not data['val_list']:
@@ -200,8 +213,8 @@ def update_graph(data, keep_last):
     return {'x': [data['time_list']], 'y': [data['val_list']]}, [0], keep_last
 
 
-@app.callback(Output('fft-graph1', 'extendData'),
-              Input('intermediate-data', 'data'))
+@app.callback(Output({'type': 'fft-graph', 'index': MATCH}, 'extendData'),
+              Input({'type': 'intermediate-data', 'index': MATCH}, 'data'))
 def update_fft(data):
     """Callback that calculates and plots FFT."""
     if data is None or data['rate'] is None:
@@ -211,10 +224,10 @@ def update_fft(data):
     return {'x': [x], 'y': [y]}, [0], len(y)
 
 
-@app.callback(Output('spectrogram1', 'figure'),
-              Input('intermediate-data', 'data'),
-              State('nperseg1', 'value'),
-              State('window1', 'value'))
+@app.callback(Output({'type': 'spectrogram', 'index': MATCH}, 'figure'),
+              Input({'type': 'intermediate-data', 'index': MATCH}, 'data'),
+              State({'type': 'nperseg', 'index': MATCH}, 'value'),
+              State({'type': 'window', 'index': MATCH}, 'value'))
 def update_spec(data, nperseg, window):
     """Callback that calculates and plots spectrogram."""
     if data is None or data['rate'] is None:
