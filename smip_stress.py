@@ -50,6 +50,7 @@ def stress(duration: int, rate: int, batch_size: int) -> None:
           f'{round(duration / elapsed, 2)}x realtime')
 
     # Download
+    timer_download_start = perf_counter()
     r = s.post(ENDPOINT, json={
         "query": QUERY_GETDATA,
         "variables": {
@@ -58,9 +59,12 @@ def stress(duration: int, rate: int, batch_size: int) -> None:
             "ids": [5356]
         }
     }, headers={"Authorization": f"Bearer {token}"})
+    download_elapsed_true = perf_counter() - timer_download_start
     r.raise_for_status()
     print('Download:', r.elapsed,
           f'{round(duration / r.elapsed.total_seconds(), 2)}x realtime')
+    print('Download (true):', timedelta(seconds=download_elapsed_true),
+          f'{round(duration / download_elapsed_true, 2)}x realtime')
     data = r.json()['data']['getRawHistoryDataWithSampling']
 
     print(len(entries), len(data))
@@ -84,8 +88,9 @@ def stress(duration: int, rate: int, batch_size: int) -> None:
     df2['d_ts'] = (df['got_ts'] - df['expected_ts']).dt.total_seconds()
     df2['d_value'] = df['got_value'] - df['expected_value']
     avg_thruput = np.mean(upload_thruput)
-    print('Upload throughput', avg_thruput)
-    print('Download throughput', len(data) / r.elapsed.total_seconds())
+    print('Upload throughput:', avg_thruput)
+    print('Download throughput:', len(data) / r.elapsed.total_seconds())
+    print('Download throughput (true):', len(data) / download_elapsed_true)
 
     # Plot
     plt.subplot(2, 2, 1)
@@ -106,4 +111,4 @@ def stress(duration: int, rate: int, batch_size: int) -> None:
 if __name__ == "__main__":
     token = get_token("test", "smtamu_group", "parthdave", "parth1234")
     with requests.Session() as s:
-        stress(30, 16000, 8000)
+        stress(30, 8000, 8000)

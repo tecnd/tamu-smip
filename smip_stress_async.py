@@ -38,23 +38,24 @@ def stress(duration: int, rate: int, batch_size: int) -> None:
 
     with FuturesSession(session=s) as fs:
         posts = [fs.post(ENDPOINT, json={
-                'query': MUTATION_ADDDATA,
-                'variables': {
-                    "id": 5356,
-                    "entries": batch
-                }
-            }, headers={'Authorization': f'Bearer {token}'})
+            'query': MUTATION_ADDDATA,
+            'variables': {
+                "id": 5356,
+                "entries": batch
+            }
+        }, headers={'Authorization': f'Bearer {token}'})
             for batch in batcher(entries, batch_size)]
-            
-        for res in as_completed(posts):
+
+        for res in as_completed(posts): # type: ignore
             resp = res.result()
-            print(resp.elapsed, resp.json())
+            print(datetime.now(), resp.elapsed, resp.json()) # type: ignore
 
     elapsed = perf_counter() - start_time
     print('Upload:', timedelta(seconds=elapsed),
           f'{round(duration / elapsed, 2)}x realtime')
 
     # Download
+    timer_start_download = perf_counter()
     r = s.post(ENDPOINT, json={
         "query": QUERY_GETDATA,
         "variables": {
@@ -63,9 +64,12 @@ def stress(duration: int, rate: int, batch_size: int) -> None:
             "ids": [5356]
         }
     }, headers={"Authorization": f"Bearer {token}"})
+    download_elapsed_true = perf_counter() - timer_start_download
     r.raise_for_status()
     print('Download:', r.elapsed,
           f'{round(duration / r.elapsed.total_seconds(), 2)}x realtime')
+    print('Download (true):', timedelta(seconds=download_elapsed_true),
+          f'{round(duration / download_elapsed_true, 2)}x realtime')
     data = r.json()['data']['getRawHistoryDataWithSampling']
 
     print(len(entries), len(data))
@@ -88,8 +92,9 @@ def stress(duration: int, rate: int, batch_size: int) -> None:
     df2 = pd.DataFrame()
     df2['d_ts'] = (df['got_ts'] - df['expected_ts']).dt.total_seconds()
     df2['d_value'] = df['got_value'] - df['expected_value']
-    print('Upload throughput', len(entries) / elapsed)
-    print('Download throughput', len(data) / r.elapsed.total_seconds())
+    print('Upload throughput:', len(entries) / elapsed)
+    print('Download throughput:', len(data) / r.elapsed.total_seconds())
+    print('Download throughput (true):', len(data) / download_elapsed_true)
 
     # Plot
     plt.subplot(1, 2, 1)
@@ -105,4 +110,4 @@ def stress(duration: int, rate: int, batch_size: int) -> None:
 if __name__ == "__main__":
     token = get_token("test", "smtamu_group", "parthdave", "parth1234")
     with requests.Session() as s:
-        stress(30, 16000, 1000)
+        stress(100, 5000, 1000)
