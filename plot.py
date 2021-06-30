@@ -1,6 +1,7 @@
 # Standard library imports
 import logging
 from datetime import datetime, timedelta, timezone
+from time import perf_counter
 
 # External imports
 import dash
@@ -145,9 +146,9 @@ app.layout = dbc.Container([
               )
 def update_live_data(n, token, last_time, id1, id2):
     """Callback to get data every second."""
-    called = datetime.now(timezone.utc)
+    timer_start = perf_counter()
     # 1 sec delay so server has time to add live data
-    end_time = called - timedelta(seconds=1)
+    end_time = datetime.now(timezone.utc) - timedelta(seconds=1)
 
     # Initialization and lag prevention
     if last_time is None or end_time - strptime_fix(last_time) > timedelta(seconds=2):
@@ -159,6 +160,7 @@ def update_live_data(n, token, last_time, id1, id2):
                          'parthdave', 'parth1234')
     # Query data from SMIP
     logging.info(f'start_time {last_time} end_time {end_time}')
+    timer_query_start = perf_counter()
     r = s.post(ENDPOINT, json={
         "query": QUERY_GETDATA,
         "variables": {
@@ -167,13 +169,14 @@ def update_live_data(n, token, last_time, id1, id2):
             "ids": [id1, id2]
         }
     }, headers={"Authorization": f"Bearer {token}"}, timeout=1)
+    timer_query_end = perf_counter()
     r.raise_for_status()
     data = r.json()['data']['getRawHistoryDataWithSampling']
     logging.info('Got %s responses', len(data))
     # Take timestamps and values out of response, format
 
     # Used for measuring performance
-    start_processing = datetime.now(timezone.utc)
+    start_processing = perf_counter()
 
     # SMIP always returns one entry before the start time, we don't need this
     if data:
@@ -193,12 +196,12 @@ def update_live_data(n, token, last_time, id1, id2):
         return {'time_list': time_list, 'val_list': val_list, 'rate': rate}
 
     # Used for measuring performance
-    data_processed = datetime.now(timezone.utc)
-    logging.info('Total %s Query %s Processing %s', data_processed - called, r.elapsed,
+    data_processed = perf_counter()
+    logging.info('Total %s Query %s Processing %s', data_processed - timer_start, timer_query_end - timer_query_start,
                  data_processed - start_processing)
 
     return unpack(id1), unpack(id2), token, end_time.isoformat(), \
-        f'Last updated {end_time.astimezone()}, received {len(data)} samples in {(data_processed - called).total_seconds()} seconds'
+        f'Last updated {end_time.astimezone()}, received {len(data)} samples in {data_processed - timer_start} seconds'
 
 
 @app.callback(Output({'type': 'time-graph', 'index': MATCH}, 'extendData'),
