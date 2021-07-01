@@ -99,4 +99,12 @@ query GetData($startTime: Datetime, $endTime: Datetime, $ids: [BigInt]) {
 """
 
 if __name__ == '__main__':
-    print(get_token("test", "smtamu_group", "parthdave", "parth1234"))
+    import timeit
+    start_time = timeit.default_timer()
+    token = get_token("test", "smtamu_group", "parthdave", "parth1234")
+    print('get_token:', timeit.default_timer() - start_time)
+    print(token)
+    start_time = timeit.default_timer()
+    update_token(token, "test", "smtamu_group", "parthdave", "parth1234")
+    print('update_token:', timeit.default_timer() - start_time)
+

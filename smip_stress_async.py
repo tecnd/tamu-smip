@@ -70,6 +70,7 @@ def stress(duration: int, rate: int, batch_size: int) -> None:
           f'{round(duration / r.elapsed.total_seconds(), 2)}x realtime')
     print('Download (true):', timedelta(seconds=download_elapsed_true),
           f'{round(duration / download_elapsed_true, 2)}x realtime')
+    print(future)
     data = r.json()['data']['getRawHistoryDataWithSampling']
 
     print(len(entries), len(data))
@@ -110,4 +111,4 @@ def stress(duration: int, rate: int, batch_size: int) -> None:
 if __name__ == "__main__":
     token = get_token("test", "smtamu_group", "parthdave", "parth1234")
     with requests.Session() as s:
-        stress(100, 5000, 1000)
+        stress(60, 16000, 1000)

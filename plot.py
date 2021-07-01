@@ -24,8 +24,12 @@ from strptime_fix import strptime_fix
 GRAPH_MARGIN = {'l': 40, 'r': 10, 't': 50, 'b': 50}
 
 # Set up logging
-logging.basicConfig(filename='plot.log', format='%(asctime)s %(levelname)s %(message)s',
-                    filemode='w', level=logging.DEBUG)
+fh = logging.FileHandler(filename='plot.log', mode='w')
+sh = logging.StreamHandler()
+sh.setLevel(logging.INFO)
+logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s',
+                    level=logging.DEBUG,
+                    handlers=[fh, sh])
 
 # All requests go through a single session for network efficiency
 s = requests.Session()
@@ -171,8 +175,13 @@ def update_live_data(n, token, last_time, id1, id2):
     }, headers={"Authorization": f"Bearer {token}"}, timeout=1)
     timer_query_end = perf_counter()
     r.raise_for_status()
-    data = r.json()['data']['getRawHistoryDataWithSampling']
-    logging.info('Got %s responses', len(data))
+    response_json = r.json()
+    if 'errors' in response_json:
+        logging.error(response_json)
+        raise Exception()
+    data = response_json['data']['getRawHistoryDataWithSampling']
+    logging.info('Got %s responses in %s seconds', len(data), timer_query_end - timer_query_start)
+
     # Take timestamps and values out of response, format
 
     # Used for measuring performance
