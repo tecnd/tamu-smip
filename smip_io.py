@@ -82,6 +82,24 @@ mutation AddData($id: BigInt, $entries: [TimeSeriesEntryInput]) {
 }
 """
 
+
+def add_data(id: int, entries: list[dict], token: str, session: requests.Session = None) -> requests.Response:
+    """Sends timeseries to SMIP."""
+    json = {
+        "query": MUTATION_ADDDATA,
+        "variables": {
+            "id": id,
+            "entries": entries
+        }
+    }
+    headers = {"Authorization": f"Bearer {token}"}
+    if session is None:
+        r = requests.post(ENDPOINT, json=json, headers=headers)
+    else:
+        r = session.post(ENDPOINT, json=json, headers=headers)
+    return r
+
+
 # GraphQL query to get data from SMIP
 QUERY_GETDATA = """
 query GetData($startTime: Datetime, $endTime: Datetime, $ids: [BigInt]) {
@@ -98,6 +116,25 @@ query GetData($startTime: Datetime, $endTime: Datetime, $ids: [BigInt]) {
 }
 """
 
+
+def get_data(start_time: str, end_time: str, ids: list[int], token: str, session: requests.Session = None) -> requests.Response:
+    """Gets timeseries from SMIP."""
+    json = {
+        "query": QUERY_GETDATA,
+        "variables": {
+            "endTime": end_time,
+            "startTime": start_time,
+            "ids": ids
+        }
+    }
+    headers = {"Authorization": f"Bearer {token}"}
+    if session is None:
+        r = requests.post(ENDPOINT, json=json, headers=headers)
+    else:
+        r = session.post(ENDPOINT, json=json, headers=headers)
+    return r
+
+
 if __name__ == '__main__':
     import timeit
     start_time = timeit.default_timer()
@@ -107,4 +144,3 @@ if __name__ == '__main__':
     start_time = timeit.default_timer()
     update_token(token, "test", "smtamu_group", "parthdave", "parth1234")
     print('update_token:', timeit.default_timer() - start_time)
-
