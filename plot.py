@@ -15,6 +15,7 @@ import requests
 from dash.dependencies import MATCH, Input, Output, State
 from dash.exceptions import PreventUpdate
 from scipy import signal
+from pandas import to_datetime
 
 # Local imports
 from smip_io import get_data, update_token
@@ -106,12 +107,15 @@ app = dash.Dash(__name__,
                     "content": "width=device-width, initial-scale=1"
                 }])
 app.layout = dbc.Container([
-    dbc.Row(
-        dbc.Col(html.H1('Dashboard'))
-    ),
-    dbc.Row(
-        dbc.Col(html.P(id='info'))
-    ),
+    dbc.Row([
+        dbc.Col(html.H1('Dashboard')),
+        dbc.Col(dbc.Button('Power', id='power', outline=True,
+                color='primary', className='float-right mt-2'))
+    ]),
+    dbc.Row([
+        dbc.Col(html.P(' ', id='info')),
+        dbc.Col(html.P('Elaspsed: 0:00:00', id='timer'))
+    ]),
     dbc.Row([
         _graphs(1),
         _graphs(2),
@@ -131,10 +135,35 @@ app.layout = dbc.Container([
         # Store JWT in local memory, saved across browser closes
         dcc.Store(id='jwt', storage_type='local', data=''),
         dcc.Store(id='last_time'),
+        dcc.Store(id='last_power'),
+        dcc.Store(id='timer_start'),
         dcc.Store(id={'type': 'intermediate-data', 'index': 1}),
         dcc.Store(id={'type': 'intermediate-data', 'index': 2})
     ])
 ], fluid=True)
+
+
+@app.callback(Output('power', 'outline'),
+              Input('power', 'n_clicks'),
+              Input('power', 'outline'), prevent_initial_call=True)
+def power_button(n, outline):
+    return not outline
+
+
+@app.callback(Output('timer', 'children'),
+              Output('last_power', 'data'),
+              Output('timer_start', 'data'),
+              Input('interval-component', 'n_intervals'),
+              Input('power', 'outline'),
+              Input('timer_start', 'data'),
+              Input('last_power', 'data'))
+def timer(n, power, timer_start, last_power):
+    if power:
+        return dash.no_update, power, dash.no_update
+    if last_power:
+        timer_start = datetime.now()
+    timer_start = to_datetime(timer_start)
+    return 'Elapsed: ' + str((datetime.now() - timer_start).to_pytimedelta()), power, timer_start
 
 
 @app.callback(Output({'type': 'intermediate-data', 'index': 1}, 'data'),
@@ -146,10 +175,14 @@ app.layout = dbc.Container([
               State('jwt', 'data'),
               State('last_time', 'data'),
               State('id1', 'value'),
-              State('id2', 'value')
+              State('id2', 'value'),
+              State('power', 'outline')
               )
-def update_live_data(n, token, last_time, id1, id2):
+def update_live_data(n, token, last_time, id1, id2, power):
     """Callback to get data every second."""
+    if power:
+        raise PreventUpdate
+
     timer_start = perf_counter()
     # 1 sec delay so server has time to add live data
     end_time = datetime.now(timezone.utc) - timedelta(seconds=1)
@@ -165,7 +198,8 @@ def update_live_data(n, token, last_time, id1, id2):
     # Query data from SMIP
     logging.info(f'start_time {last_time} end_time {end_time}')
     timer_query_start = perf_counter()
-    r = get_data(last_time, end_time.isoformat(), [id1, id2], token, s, timeout=1)
+    r = get_data(last_time, end_time.isoformat(),
+                 [id1, id2], token, s, timeout=1)
     timer_query_end = perf_counter()
     r.raise_for_status()
     response_json = r.json()
@@ -173,7 +207,8 @@ def update_live_data(n, token, last_time, id1, id2):
         logging.error(response_json)
         raise Exception()
     data = response_json['data']['getRawHistoryDataWithSampling']
-    logging.info('Got %s responses in %s seconds', len(data), timer_query_end - timer_query_start)
+    logging.info('Got %s responses in %s seconds', len(
+        data), timer_query_end - timer_query_start)
 
     # Take timestamps and values out of response, format
 
