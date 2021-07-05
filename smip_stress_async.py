@@ -96,6 +96,7 @@ def stress(duration: int, rate: int, batch_size: int) -> None:
     print('Upload throughput:', len(entries) / elapsed)
     print('Download throughput:', len(data) / r.elapsed.total_seconds())
     print('Download throughput (true):', len(data) / download_elapsed_true)
+    print(df2.describe())
 
     # Plot
     plt.subplot(1, 2, 1)
@@ -111,4 +112,4 @@ def stress(duration: int, rate: int, batch_size: int) -> None:
 if __name__ == "__main__":
     token = get_token("test", "smtamu_group", "parthdave", "parth1234")
     with requests.Session() as s:
-        stress(60, 16000, 1000)
+        stress(30, 8000, 1000)
