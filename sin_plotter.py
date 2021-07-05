@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 import requests
 
-from smip_io import ENDPOINT, MUTATION_ADDDATA, get_token
+from smip_io import add_data, get_token
 
 
 def sin_plot(rate: int, freq1: float) -> None:
@@ -23,14 +23,7 @@ def sin_plot(rate: int, freq1: float) -> None:
             val_range = np.sin(freq1 * val_range)
             payload = [{'timestamp': ts.isoformat(), 'value': str(val), 'status': 0}
                        for ts, val in zip(time_range, val_range)]
-            s.post(ENDPOINT, json={
-                "query": MUTATION_ADDDATA,
-                "variables": {
-                    "id": 5356,
-                    "entries": payload
-                }
-            }, headers={"Authorization": f"Bearer {token}"})
-
+            add_data(5356, payload, token, s)
             t += rate
             now = future
             rest = future - datetime.now(timezone.utc)

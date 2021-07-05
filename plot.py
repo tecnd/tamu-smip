@@ -17,7 +17,7 @@ from dash.exceptions import PreventUpdate
 from scipy import signal
 
 # Local imports
-from smip_io import ENDPOINT, QUERY_GETDATA, update_token
+from smip_io import get_data, update_token
 from strptime_fix import strptime_fix
 
 # Define constants
@@ -165,14 +165,7 @@ def update_live_data(n, token, last_time, id1, id2):
     # Query data from SMIP
     logging.info(f'start_time {last_time} end_time {end_time}')
     timer_query_start = perf_counter()
-    r = s.post(ENDPOINT, json={
-        "query": QUERY_GETDATA,
-        "variables": {
-            "endTime": end_time.isoformat(),
-            "startTime": last_time,
-            "ids": [id1, id2]
-        }
-    }, headers={"Authorization": f"Bearer {token}"}, timeout=1)
+    r = get_data(last_time, end_time.isoformat(), [id1, id2], token, s, timeout=1)
     timer_query_end = perf_counter()
     r.raise_for_status()
     response_json = r.json()
