@@ -2,24 +2,9 @@ from datetime import datetime, timedelta, timezone
 
 import nidaqmx
 import requests
-from nidaqmx.constants import AcquisitionType
+from nidaqmx.constants import AcquisitionType, LoggingMode, LoggingOperation
 
-from auth import update_token
-
-ENDPOINT = "https://smtamu.cesmii.net/graphql"
-
-MUTATION = """
-mutation AddData($id: BigInt, $entries: [TimeSeriesEntryInput]) {
-  replaceTimeSeriesRange(
-    input: {
-        attributeOrTagId: $id,
-        entries: $entries
-    }
-  ) {
-    json
-  }
-}
-"""
+from smip_io import update_token, add_data
 
 
 def read_data(sample_rate: int, duration: int, channel: str, id: int) -> None:
@@ -28,6 +13,7 @@ def read_data(sample_rate: int, duration: int, channel: str, id: int) -> None:
     time_step = timedelta(seconds=1/sample_rate)
     with requests.Session() as s:
         with nidaqmx.Task() as task:
+            task.in_stream.configure_logging('log.tdms', logging_mode=LoggingMode.LOG_AND_READ, operation=LoggingOperation.CREATE_OR_REPLACE)
             task.ai_channels.add_ai_voltage_chan(channel)
             task.timing.cfg_samp_clk_timing(
                 sample_rate, sample_mode=AcquisitionType.CONTINUOUS)
@@ -54,13 +40,7 @@ def read_data(sample_rate: int, duration: int, channel: str, id: int) -> None:
                 token = update_token(
                     token, 'test', 'smtamu_group', 'parthdave', 'parth1234')
                 # Batch upload
-                r = s.post(ENDPOINT, json={
-                    "query": MUTATION,
-                    "variables": {
-                        "id": id,
-                        "entries": points
-                    }
-                }, headers={"Authorization": f"Bearer {token}"})
+                r = add_data(id, points, token, session=s)
                 # Receive response
                 print(datetime.now(), r.json(), 'Elapsed', r.elapsed)
                 samples_to_take = samples_to_take - sample_rate
