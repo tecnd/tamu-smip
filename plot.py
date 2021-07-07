@@ -2,6 +2,7 @@
 import logging
 from datetime import datetime, timedelta, timezone
 from time import perf_counter
+from math import nan
 
 # External imports
 import dash
@@ -279,7 +280,7 @@ def update_live_data(n, token, last_time, id1, id2, power):
             return dash.no_update
 
         # Measure sampling rate
-        rate = float('nan')
+        rate = nan
         if len(time_list) > 1:
             rate = (strptime_fix(time_list[1])
                     - strptime_fix(time_list[0])).total_seconds()
@@ -314,11 +315,18 @@ def machine_state(data):
               Output('IdleTimes', 'value'),
               Output('DownTimes', 'value'),
               Input({'type': 'intermediate-data', 'index': 1}, 'data'),
+              Input('power', 'outline'),
               State('RunTimes', 'value'),
               State('IdleTimes', 'value'),
               State('DownTimes', 'value'))
-def calculate_times(data, run, idle, down):
-    if data is None or not data['val_list']:
+def calculate_times(data, power, run, idle, down):
+    if power:
+        raise PreventUpdate
+    ctx = dash.callback_context
+    if ctx.triggered:
+        if ctx.triggered[0]['prop_id'] == 'power.outline' and power == False:
+            return 0, 0, 0
+    if data is None or not data['val_list'] or not data['rate']:
         raise PreventUpdate
     if run is None:
         run = 0
@@ -333,8 +341,7 @@ def calculate_times(data, run, idle, down):
     down_c = np.count_nonzero(arr == 0)
     idle_c -= down_c
     return run + run_c * data['rate'], idle + idle_c * data['rate'], down + down_c * data['rate']
-    
-    
+
 
 @app.callback(Output({'type': 'time-graph', 'index': MATCH}, 'extendData'),
               Input({'type': 'intermediate-data', 'index': MATCH}, 'data'),
