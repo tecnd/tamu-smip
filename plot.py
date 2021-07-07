@@ -69,33 +69,42 @@ def _graphs(i: int) -> dbc.Col:
 
 def _settings(i: int, id: int) -> dbc.Col:
     return dbc.Col(
-        dbc.FormGroup([
-            dbc.Label('ID', html_for=f'id{i}'),
-            dbc.Input(id=f'id{i}', type="number",
-                      min=0, max=10000, value=id),
-            dbc.Label('Show last samples', html_for={
-                      'type': 'keep_last', 'index': i}),
-            dbc.Input(id={'type': 'keep_last', 'index': i}, type="number",
-                      min=10, max=10000, value=1024, persistence=True),
-            dbc.Label('Frequency bins', html_for={
-                      'type': 'nperseg', 'index': i}),
-            dbc.Input(id={'type': 'nperseg', 'index': i}, type="number",
-                      min=1, max=1000, value=250, persistence=True),
-            dbc.Label('Window type', html_for={'type': 'window', 'index': i}),
-            dbc.Select(id={'type': 'window', 'index': i}, options=[
-                {'label': 'Boxcar', 'value': 'boxcar'},
-                {'label': 'Triangular', 'value': 'triang'},
-                {'label': 'Blackman', 'value': 'blackman'},
-                {'label': 'Hamming', 'value': 'hamming'},
-                {'label': 'Hann', 'value': 'hann'},
-                {'label': 'Bartlett', 'value': 'bartlett'},
-                {'label': 'Flat top', 'value': 'flattop'},
-                {'label': 'Parzen', 'value': 'parzen'},
-                {'label': 'Bohman', 'value': 'bohman'},
-                {'label': 'Blackman-Harris', 'value': 'blackmanharris'},
-                {'label': 'Nuttall', 'value': 'nuttall'},
-                {'label': 'Bartlett-Hann', 'value': 'barthann'}
-            ], value='hamming', persistence=True)
+        dbc.Form([
+            dbc.FormGroup([
+                dbc.Label('ID', html_for=f'id{i}'),
+                dbc.Input(id=f'id{i}', type="number",
+                          min=0, max=10000, value=id)
+            ]),
+            dbc.FormGroup([
+                dbc.Label('Show last samples', html_for={
+                          'type': 'keep_last', 'index': i}),
+                dbc.Input(id={'type': 'keep_last', 'index': i}, type="number",
+                          min=10, max=10000, value=1024, persistence=True)
+            ]),
+            dbc.FormGroup([
+                dbc.Label('Frequency bins', html_for={
+                          'type': 'nperseg', 'index': i}),
+                dbc.Input(id={'type': 'nperseg', 'index': i}, type="number",
+                          min=1, max=1000, value=250, persistence=True)
+            ]),
+            dbc.FormGroup([
+                dbc.Label('Window type', html_for={
+                          'type': 'window', 'index': i}),
+                dbc.Select(id={'type': 'window', 'index': i}, options=[
+                    {'label': 'Boxcar', 'value': 'boxcar'},
+                    {'label': 'Triangular', 'value': 'triang'},
+                    {'label': 'Blackman', 'value': 'blackman'},
+                    {'label': 'Hamming', 'value': 'hamming'},
+                    {'label': 'Hann', 'value': 'hann'},
+                    {'label': 'Bartlett', 'value': 'bartlett'},
+                    {'label': 'Flat top', 'value': 'flattop'},
+                    {'label': 'Parzen', 'value': 'parzen'},
+                    {'label': 'Bohman', 'value': 'bohman'},
+                    {'label': 'Blackman-Harris', 'value': 'blackmanharris'},
+                    {'label': 'Nuttall', 'value': 'nuttall'},
+                    {'label': 'Bartlett-Hann', 'value': 'barthann'}
+                ], value='hamming', persistence=True)
+            ])
         ])
     )
 
@@ -109,8 +118,12 @@ app = dash.Dash(__name__,
 app.layout = dbc.Container([
     dbc.Row([
         dbc.Col(html.H1('Dashboard')),
-        dbc.Col(dbc.Button('Power', id='power', outline=True,
-                color='primary', className='float-right mt-2'))
+        dbc.Col([
+            dbc.Button('Settings', id='settings', outline=False,
+                color='primary', className='float-right mt-2'),
+            dbc.Button('Power', id='power', outline=True,
+                color='primary', className='float-right mt-2 mr-2')
+        ])
     ]),
     dbc.Row([
         dbc.Col(html.P(' ', id='info')),
@@ -120,9 +133,62 @@ app.layout = dbc.Container([
         _graphs(1),
         _graphs(2),
         dbc.Col([
-            dbc.Row([_settings(1, 5356), _settings(2, 5366)]),
+            dbc.Collapse(
+                dbc.Form(
+                    dbc.Row([_settings(1, 5356), _settings(2, 5366)], form=True)
+                ), id='collapse', is_open=True
+            ),
             html.Hr(),
-            html.P('Other stuff goes here')
+            html.Form([
+                html.H5('Quality Metrics'),
+                dbc.Row([
+                    dbc.Col([
+                        dbc.FormGroup([
+                            dbc.Label('Surface Roughness Ra (um)',
+                                      html_for='roughness'),
+                            dbc.Input(id='roughness', disabled=True)
+                        ]),
+                        dbc.FormGroup([
+                            dbc.Label('Grinding Burns', html_for='burns'),
+                            dbc.Input(id='burns', disabled=True)
+                        ])
+                    ]),
+                    dbc.Col([
+                        dbc.FormGroup([
+                            dbc.Label('Anomolous Parts', html_for='a_parts'),
+                            dbc.Input(id='a_parts', disabled=True)
+                        ]),
+                        dbc.FormGroup([
+                            dbc.Label('Good Parts', html_for='g_parts'),
+                            dbc.Input(id='g_parts', disabled=True)
+                        ])
+                    ])
+                ], form=True),
+                html.Hr(),
+                html.H5('Productivity Metrics'),
+                dbc.Row([
+                    dbc.Col([
+                        dbc.FormGroup([
+                            dbc.Label('Part Count', html_for='p_count'),
+                            dbc.Input(id='p_count', disabled=True)
+                        ]),
+                        dbc.FormGroup([
+                            dbc.Label('Idle Time (s)', html_for='idle'),
+                            dbc.Input(id='idle', disabled=True)
+                        ])
+                    ]),
+                    dbc.Col([
+                        dbc.FormGroup([
+                            dbc.Label('Run Time (s)', html_for='run'),
+                            dbc.Input(id='run', disabled=True)
+                        ]),
+                        dbc.FormGroup([
+                            dbc.Label('Down Time (s)', html_for='down'),
+                            dbc.Input(id='down', disabled=True)
+                        ])
+                    ])
+                ], form=True)
+            ])
         ], lg=4)
     ]),
     html.Div([
@@ -148,6 +214,14 @@ app.layout = dbc.Container([
               Input('power', 'outline'), prevent_initial_call=True)
 def power_button(n, outline):
     return not outline
+
+
+@app.callback(Output('settings', 'outline'),
+              Output('collapse', 'is_open'),
+              Input('settings', 'n_clicks'),
+              Input('settings', 'outline'), prevent_initial_call=True)
+def collapse(n, outline):
+    return not outline, outline
 
 
 @app.callback(Output('timer', 'children'),
