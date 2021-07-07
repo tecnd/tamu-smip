@@ -159,7 +159,7 @@ app.layout = dbc.Container([
                 dbc.Row([
                     dbc.Col(_FormGroupMaker(
                         ['Surface Roughness Ra (um)', 'Grinding Burns'])),
-                    dbc.Col(_FormGroupMaker(['Anomolous Parts', 'Good Parts']))
+                    dbc.Col(_FormGroupMaker(['Anomalous Parts', 'Good Parts']))
                 ], form=True),
                 html.Hr(),
                 html.H5('Productivity Metrics'),
@@ -181,6 +181,7 @@ app.layout = dbc.Container([
         dcc.Store(id='jwt', storage_type='local', data=''),
         dcc.Store(id='last_time'),
         dcc.Store(id='timer_start'),
+        dcc.Store(id='anomaly_flag', data=False),
         dcc.Store(id={'type': 'intermediate-data', 'index': 1}),
         dcc.Store(id={'type': 'intermediate-data', 'index': 2})
     ])
@@ -296,19 +297,48 @@ def update_live_data(n, token, last_time, id1, id2, power):
 
 
 @app.callback(Output('MachineState', 'value'),
-              Input({'type': 'intermediate-data', 'index': 1}, 'data'))
-def machine_state(data):
+              Output('PartCount', 'value'),
+              Output('AnomalousParts', 'value'),
+              Output('anomaly_flag', 'data'),
+              Input({'type': 'intermediate-data', 'index': 1}, 'data'),
+              Input('power', 'outline'),
+              State('MachineState', 'value'),
+              State('PartCount', 'value'),
+              State('AnomalousParts', 'value'),
+              State('anomaly_flag', 'data'))
+def machine_state(data, power, state, count, anomalous, flag):
+    if power:
+        raise PreventUpdate
+    ctx = dash.callback_context
+    if ctx.triggered:
+        if ctx.triggered[0]['prop_id'] == 'power.outline' and power == False:
+            return None, 0, 0, False
     if data is None or not data['val_list']:
         raise PreventUpdate
     average = np.mean(data['val_list'])
     if average == 0:
-        return 'MACHINE STOP'
+        new_state = 'MACHINE STOP'
     elif average < 100:
-        return 'MACHINE IDLE'
+        new_state = 'MACHINE IDLE'
     elif average > 5800:
-        return 'ABNORMAL OPERATION'
+        new_state = 'ABNORMAL OPERATION'
     else:
-        return 'NORMAL OPERATION'
+        new_state = 'NORMAL OPERATION'
+    if state == 'MACHINE STOP' and new_state != 'MACHINE STOP':
+        count += 1
+        flag = False
+    if new_state == 'ABNORMAL OPERATION':
+        if not flag:
+            anomalous += 1
+        flag = True
+    return new_state, count, anomalous, flag
+
+
+@app.callback(Output('GoodParts', 'value'),
+              Input('PartCount', 'value'),
+              State('AnomalousParts', 'value'))
+def good_parts(count, anomalous):
+    return count - anomalous
 
 
 @app.callback(Output('RunTimes', 'value'),
