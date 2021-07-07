@@ -109,6 +109,19 @@ def _settings(i: int, id: int) -> dbc.Col:
     )
 
 
+def _FormGroupMaker(labels: list[str]) -> list[dbc.FormGroup]:
+    """Internal function to make lists of FormGroups from a list of string labels."""
+    groups = list()
+    for label in labels:
+        slug = ''.join(ch for ch in label if ch.isalnum())
+        fg = dbc.FormGroup([
+            dbc.Label(label, html_for=slug),
+            dbc.Input(id=slug, disabled=True)
+        ])
+        groups.append(fg)
+    return groups
+
+
 app = dash.Dash(__name__,
                 external_stylesheets=[dbc.themes.BOOTSTRAP],
                 meta_tags=[{
@@ -134,59 +147,22 @@ app.layout = dbc.Container([
         _graphs(2),
         dbc.Col([
             dbc.Collapse(
-                dbc.Form(
-                    dbc.Row([_settings(1, 5356), _settings(2, 5366)], form=True)
-                ), id='collapse', is_open=True
+                dbc.Row([_settings(1, 5356), _settings(2, 5366)], form=True),
+                id='collapse', is_open=True
             ),
             html.Hr(),
             html.Form([
                 html.H5('Quality Metrics'),
                 dbc.Row([
-                    dbc.Col([
-                        dbc.FormGroup([
-                            dbc.Label('Surface Roughness Ra (um)',
-                                      html_for='roughness'),
-                            dbc.Input(id='roughness', disabled=True)
-                        ]),
-                        dbc.FormGroup([
-                            dbc.Label('Grinding Burns', html_for='burns'),
-                            dbc.Input(id='burns', disabled=True)
-                        ])
-                    ]),
-                    dbc.Col([
-                        dbc.FormGroup([
-                            dbc.Label('Anomolous Parts', html_for='a_parts'),
-                            dbc.Input(id='a_parts', disabled=True)
-                        ]),
-                        dbc.FormGroup([
-                            dbc.Label('Good Parts', html_for='g_parts'),
-                            dbc.Input(id='g_parts', disabled=True)
-                        ])
-                    ])
+                    dbc.Col(_FormGroupMaker(
+                        ['Surface Roughness Ra (um)', 'Grinding Burns'])),
+                    dbc.Col(_FormGroupMaker(['Anomolous Parts', 'Good Parts']))
                 ], form=True),
                 html.Hr(),
                 html.H5('Productivity Metrics'),
                 dbc.Row([
-                    dbc.Col([
-                        dbc.FormGroup([
-                            dbc.Label('Part Count', html_for='p_count'),
-                            dbc.Input(id='p_count', disabled=True)
-                        ]),
-                        dbc.FormGroup([
-                            dbc.Label('Idle Time (s)', html_for='idle'),
-                            dbc.Input(id='idle', disabled=True)
-                        ])
-                    ]),
-                    dbc.Col([
-                        dbc.FormGroup([
-                            dbc.Label('Run Time (s)', html_for='run'),
-                            dbc.Input(id='run', disabled=True)
-                        ]),
-                        dbc.FormGroup([
-                            dbc.Label('Down Time (s)', html_for='down'),
-                            dbc.Input(id='down', disabled=True)
-                        ])
-                    ])
+                    dbc.Col(_FormGroupMaker(['Part Count', 'Idle Time (s)'])),
+                    dbc.Col(_FormGroupMaker(['Run Time (s)', 'Down Time (s)']))
                 ], form=True)
             ])
         ], lg=4)
