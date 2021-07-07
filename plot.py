@@ -131,16 +131,13 @@ app = dash.Dash(__name__,
 app.layout = dbc.Container([
     dbc.Row([
         dbc.Col(html.H1('Dashboard')),
+        dbc.Col(html.P(id='info'), className='col-md-auto'),
         dbc.Col([
             dbc.Button('Settings', id='settings', outline=False,
                 color='primary', className='float-right mt-2'),
             dbc.Button('Power', id='power', outline=True,
                 color='primary', className='float-right mt-2 mr-2')
         ])
-    ]),
-    dbc.Row([
-        dbc.Col(html.P(' ', id='info')),
-        dbc.Col(html.P('Elaspsed: 0:00:00', id='timer'))
     ]),
     dbc.Row([
         _graphs(1),
@@ -152,6 +149,11 @@ app.layout = dbc.Container([
             ),
             html.Hr(),
             html.Form([
+                dbc.Row([
+                    dbc.Col(_FormGroupMaker(['Elapsed Time'])),
+                    dbc.Col(_FormGroupMaker(['Machine State']))
+                ], form=True),
+                html.Hr(),
                 html.H5('Quality Metrics'),
                 dbc.Row([
                     dbc.Col(_FormGroupMaker(
@@ -177,7 +179,6 @@ app.layout = dbc.Container([
         # Store JWT in local memory, saved across browser closes
         dcc.Store(id='jwt', storage_type='local', data=''),
         dcc.Store(id='last_time'),
-        dcc.Store(id='last_power'),
         dcc.Store(id='timer_start'),
         dcc.Store(id={'type': 'intermediate-data', 'index': 1}),
         dcc.Store(id={'type': 'intermediate-data', 'index': 2})
@@ -200,20 +201,20 @@ def collapse(n, outline):
     return not outline, outline
 
 
-@app.callback(Output('timer', 'children'),
-              Output('last_power', 'data'),
+@app.callback(Output('ElapsedTime', 'value'),
               Output('timer_start', 'data'),
               Input('interval-component', 'n_intervals'),
               Input('power', 'outline'),
-              Input('timer_start', 'data'),
-              Input('last_power', 'data'))
-def timer(n, power, timer_start, last_power):
+              Input('timer_start', 'data'))
+def timer(n, power, timer_start):
     if power:
-        return dash.no_update, power, dash.no_update
-    if last_power:
-        timer_start = datetime.now()
+        raise PreventUpdate
+    ctx = dash.callback_context
+    if ctx.triggered:
+        if ctx.triggered[0]['prop_id'] == 'power.outline' and power == False:
+            timer_start = datetime.now()
     timer_start = to_datetime(timer_start)
-    return 'Elapsed: ' + str((datetime.now() - timer_start).to_pytimedelta()), power, timer_start
+    return str((datetime.now() - timer_start).to_pytimedelta()), timer_start
 
 
 @app.callback(Output({'type': 'intermediate-data', 'index': 1}, 'data'),
@@ -270,10 +271,12 @@ def update_live_data(n, token, last_time, id1, id2, power):
         data.pop(0)
 
     # Unpack data
-    def unpack(id: int) -> dict:
+    def unpack(id: int):
         """Unpacks return data into time and value lists"""
         time_list = [i['ts'] for i in data if int(i['id']) == id]
         val_list = [i['floatvalue'] for i in data if int(i['id']) == id]
+        if not time_list:
+            return dash.no_update
 
         # Measure sampling rate
         rate = float('nan')
@@ -290,6 +293,48 @@ def update_live_data(n, token, last_time, id1, id2, power):
     return unpack(id1), unpack(id2), token, end_time.isoformat(), \
         f'Last updated {end_time.astimezone()}, received {len(data)} samples in {data_processed - timer_start} seconds'
 
+
+@app.callback(Output('MachineState', 'value'),
+              Input({'type': 'intermediate-data', 'index': 1}, 'data'))
+def machine_state(data):
+    if data is None or not data['val_list']:
+        raise PreventUpdate
+    average = np.mean(data['val_list'])
+    if average == 0:
+        return 'MACHINE STOP'
+    elif average < 100:
+        return 'MACHINE IDLE'
+    elif average > 5800:
+        return 'ABNORMAL OPERATION'
+    else:
+        return 'NORMAL OPERATION'
+
+
+@app.callback(Output('RunTimes', 'value'),
+              Output('IdleTimes', 'value'),
+              Output('DownTimes', 'value'),
+              Input({'type': 'intermediate-data', 'index': 1}, 'data'),
+              State('RunTimes', 'value'),
+              State('IdleTimes', 'value'),
+              State('DownTimes', 'value'))
+def calculate_times(data, run, idle, down):
+    if data is None or not data['val_list']:
+        raise PreventUpdate
+    if run is None:
+        run = 0
+    if idle is None:
+        idle = 0
+    if down is None:
+        down = 0
+    arr = np.array(data['val_list'])
+    run_c = len(data['val_list'])
+    idle_c = np.count_nonzero(arr < 100)
+    run_c -= idle_c
+    down_c = np.count_nonzero(arr == 0)
+    idle_c -= down_c
+    return run + run_c * data['rate'], idle + idle_c * data['rate'], down + down_c * data['rate']
+    
+    
 
 @app.callback(Output({'type': 'time-graph', 'index': MATCH}, 'extendData'),
               Input({'type': 'intermediate-data', 'index': MATCH}, 'data'),
