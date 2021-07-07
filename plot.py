@@ -76,11 +76,11 @@ def _settings(i: int, id: int) -> dbc.Col:
             dbc.Label('Show last samples', html_for={
                       'type': 'keep_last', 'index': i}),
             dbc.Input(id={'type': 'keep_last', 'index': i}, type="number",
-                      min=10, max=10000, value=1024),
+                      min=10, max=10000, value=1024, persistence=True),
             dbc.Label('Frequency bins', html_for={
                       'type': 'nperseg', 'index': i}),
             dbc.Input(id={'type': 'nperseg', 'index': i}, type="number",
-                      min=1, max=1000, value=250),
+                      min=1, max=1000, value=250, persistence=True),
             dbc.Label('Window type', html_for={'type': 'window', 'index': i}),
             dbc.Select(id={'type': 'window', 'index': i}, options=[
                 {'label': 'Boxcar', 'value': 'boxcar'},
@@ -95,7 +95,7 @@ def _settings(i: int, id: int) -> dbc.Col:
                 {'label': 'Blackman-Harris', 'value': 'blackmanharris'},
                 {'label': 'Nuttall', 'value': 'nuttall'},
                 {'label': 'Bartlett-Hann', 'value': 'barthann'}
-            ], value='hamming')
+            ], value='hamming', persistence=True)
         ])
     )
 
