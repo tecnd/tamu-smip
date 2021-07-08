@@ -1,5 +1,7 @@
 """Handles authentication and communication with SMIP via GraphQL"""
 
+from typing import List
+
 import jwt
 import requests
 
@@ -83,7 +85,7 @@ mutation AddData($id: BigInt, $entries: [TimeSeriesEntryInput]) {
 """
 
 
-def add_data(id: int, entries: list[dict], token: str, session: requests.Session = None, timeout: float = None) -> requests.Response:
+def add_data(id: int, entries: List[dict], token: str, session: requests.Session = None, timeout: float = None) -> requests.Response:
     """Sends timeseries to SMIP."""
     json = {
         "query": MUTATION_ADDDATA,
@@ -94,7 +96,8 @@ def add_data(id: int, entries: list[dict], token: str, session: requests.Session
     }
     headers = {"Authorization": f"Bearer {token}"}
     if session is None:
-        r = requests.post(ENDPOINT, json=json, headers=headers, timeout=timeout)
+        r = requests.post(ENDPOINT, json=json,
+                          headers=headers, timeout=timeout)
     else:
         r = session.post(ENDPOINT, json=json, headers=headers, timeout=timeout)
     return r
@@ -117,7 +120,7 @@ query GetData($startTime: Datetime, $endTime: Datetime, $ids: [BigInt]) {
 """
 
 
-def get_data(start_time: str, end_time: str, ids: list[int], token: str, session: requests.Session = None, timeout: float = None) -> requests.Response:
+def get_data(start_time: str, end_time: str, ids: List[int], token: str, session: requests.Session = None, timeout: float = None) -> requests.Response:
     """Gets timeseries from SMIP."""
     json = {
         "query": QUERY_GETDATA,
@@ -129,7 +132,8 @@ def get_data(start_time: str, end_time: str, ids: list[int], token: str, session
     }
     headers = {"Authorization": f"Bearer {token}"}
     if session is None:
-        r = requests.post(ENDPOINT, json=json, headers=headers, timeout=timeout)
+        r = requests.post(ENDPOINT, json=json,
+                          headers=headers, timeout=timeout)
     else:
         r = session.post(ENDPOINT, json=json, headers=headers, timeout=timeout)
     return r

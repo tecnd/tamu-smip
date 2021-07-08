@@ -1,8 +1,9 @@
 # Standard library imports
 import logging
 from datetime import datetime, timedelta, timezone
-from time import perf_counter
 from math import nan
+from time import perf_counter
+from typing import List
 
 # External imports
 import dash
@@ -15,8 +16,8 @@ import plotly.graph_objects as go
 import requests
 from dash.dependencies import MATCH, Input, Output, State
 from dash.exceptions import PreventUpdate
-from scipy import signal
 from pandas import to_datetime
+from scipy import signal
 
 # Local imports
 from smip_io import get_data, update_token
@@ -110,7 +111,7 @@ def _settings(i: int, id: int) -> dbc.Col:
     )
 
 
-def _FormGroupMaker(labels: list[str]) -> list[dbc.FormGroup]:
+def _FormGroupMaker(labels: List[str]) -> List[dbc.FormGroup]:
     """Internal function to make lists of FormGroups from a list of string labels."""
     groups = list()
     for label in labels:
