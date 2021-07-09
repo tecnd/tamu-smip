@@ -139,6 +139,13 @@ def get_data(start_time: str, end_time: str, ids: List[int], token: str, session
     return r
 
 
+def batcher(iterable, n: int = 1000):
+    """Yields generator that splits long list into chunks of length n."""
+    l = len(iterable)
+    for ndx in range(0, l, n):
+        yield iterable[ndx:min(ndx + n, l)]
+
+
 if __name__ == '__main__':
     import timeit
     start_time = timeit.default_timer()

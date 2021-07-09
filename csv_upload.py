@@ -1,10 +1,11 @@
 import sys
 import time
+from concurrent.futures import as_completed
 from datetime import datetime, timedelta, timezone
 
-import requests
+from requests_futures.sessions import FuturesSession
 
-from smip_io import add_data, get_token
+from smip_io import add_data, batcher, get_token
 
 
 def csv_upload(file, rate: int, id: int) -> None:
@@ -13,8 +14,15 @@ def csv_upload(file, rate: int, id: int) -> None:
     inc = timedelta(seconds=1/rate)
     buf = list()
     token = get_token("test", "smtamu_group", "parthdave", "parth1234")
+
+    def _batch_upload():
+        posts = [add_data(id, batch, token, s) for batch in batcher(buf, 1000)]
+        for res in as_completed(posts):  # type: ignore
+            resp = res.result()
+            print(datetime.now(), resp.elapsed, resp.json())  # type: ignore
+        buf.clear()
     with open(file, 'r') as f:
-        with requests.Session() as s:
+        with FuturesSession() as s:
             now = datetime.now()
             future = now + timedelta(seconds=1)
             for val in f:
@@ -23,17 +31,13 @@ def csv_upload(file, rate: int, id: int) -> None:
                         'status': 0}
                 buf.append(data)
                 if len(buf) >= rate:
-                    r = add_data(id, buf, token, s)
-                    r.raise_for_status()
-                    print(r.elapsed, r.json())
-                    buf.clear()
+                    _batch_upload()
                     time.sleep(
                         max((future - datetime.now()).total_seconds(), 0))
                     future += timedelta(seconds=1)
                 timestamp += inc
             if buf:
-                r = add_data(id, buf, token, s)
-                r.raise_for_status()
+                _batch_upload()
                 buf.clear()
 
 
