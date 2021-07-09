@@ -292,9 +292,9 @@ def update_live_data(n, token, last_time, id1, id2, power):
     # Used for measuring performance
     start_processing = perf_counter()
 
-    # SMIP always returns one entry before the start time, we don't need this
-    if data:
-        data.pop(0)
+    # SMIP always returns one entry before the start time for each ID, we don't need this
+    if len(data) == 1 or len(data) == 2:
+        data.clear()
 
     # Unpack data
     def unpack(id: int):
@@ -426,7 +426,7 @@ def update_fft(data):
               State({'type': 'window', 'index': MATCH}, 'value'))
 def update_spec(data, nperseg, window):
     """Callback that calculates and plots spectrogram."""
-    if data is None or data['rate'] is None:
+    if data is None or data['val_list'] is None or data['rate'] is None:
         raise PreventUpdate
     f, t, Sxx = signal.spectrogram(np.asarray(
         data['val_list']), round(1/data['rate']), nperseg=nperseg, window=window)
