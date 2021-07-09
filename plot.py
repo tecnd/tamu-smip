@@ -10,6 +10,8 @@ import dash
 import dash_bootstrap_components as dbc
 import dash_core_components as dcc
 import dash_html_components as html
+import matlab
+import matlab.engine
 import numpy as np
 # import plotly.express as px
 import plotly.graph_objects as go
@@ -36,6 +38,9 @@ logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s',
 
 # All requests go through a single session for network efficiency
 s = requests.Session()
+
+# Start MATLAB engine
+eng = matlab.engine.start_matlab()
 
 # Page layout stuff
 
@@ -217,7 +222,22 @@ def timer(n, power, timer_start):
         if ctx.triggered[0]['prop_id'] == 'power.outline' and power == False:
             timer_start = datetime.now()
     timer_start = to_datetime(timer_start)
-    return str((datetime.now() - timer_start).to_pytimedelta()), timer_start
+    return str((datetime.now() - timer_start).to_pytimedelta()), timer_start # type: ignore
+
+
+@app.callback(Output('SurfaceRoughnessRaum', 'value'),
+              Input({'type': 'intermediate-data', 'index': 1}, 'data'),
+              Input({'type': 'intermediate-data', 'index': 2}, 'data'))
+def surface_roughness(power, acc):
+    if power is None or acc is None or power['val_list'] is None or acc['val_list'] is None:
+        raise PreventUpdate
+    feed_rate = 0.4
+    wheel_speed = 45.0
+    work_speed = 100.0
+    power = matlab.double(power['val_list'])
+    acc_n = matlab.double(acc['val_list'])
+    acc_t = acc_n
+    return eng.sr_predictor(feed_rate, wheel_speed, work_speed, power, acc_n, acc_t) # type: ignore
 
 
 @app.callback(Output({'type': 'intermediate-data', 'index': 1}, 'data'),
