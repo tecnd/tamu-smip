@@ -79,8 +79,11 @@ def _settings(i: int, id: int) -> dbc.Col:
         dbc.Form([
             dbc.FormGroup([
                 dbc.Label('ID', html_for=f'id{i}'),
-                dbc.Input(id=f'id{i}', type="number",
-                          min=0, max=10000, value=id)
+                dbc.Select(id=f'id{i}', options=[
+                    {'label': 'Power (5366)', 'value': 5366},
+                    {'label': 'Acceleration (5356)', 'value': 5356},
+                    {'label': 'Force (5348)', 'value': 5348}
+                ], value=id, persistence=True)
             ]),
             dbc.FormGroup([
                 dbc.Label('Show last samples', html_for={
@@ -151,7 +154,7 @@ app.layout = dbc.Container([
         _graphs(2),
         dbc.Col([
             dbc.Collapse(
-                dbc.Row([_settings(1, 5356), _settings(2, 5366)], form=True),
+                dbc.Row([_settings(1, 5366), _settings(2, 5356)], form=True),
                 id='collapse', is_open=True
             ),
             html.Hr(),
