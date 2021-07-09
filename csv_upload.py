@@ -4,7 +4,7 @@ from datetime import datetime, timedelta, timezone
 
 import requests
 
-from smip_io import ENDPOINT, MUTATION_ADDDATA, get_token
+from smip_io import add_data, get_token
 
 
 def csv_upload(file, rate: int, id: int) -> None:
@@ -23,13 +23,7 @@ def csv_upload(file, rate: int, id: int) -> None:
                         'status': 0}
                 buf.append(data)
                 if len(buf) >= rate:
-                    r = s.post(ENDPOINT, json={
-                        'query': MUTATION_ADDDATA,
-                        'variables': {
-                            'id': id,
-                            'entries': buf
-                        }
-                    }, headers={"Authorization": f"Bearer {token}"})
+                    r = add_data(id, buf, token, s)
                     r.raise_for_status()
                     print(r.elapsed, r.json())
                     buf.clear()
@@ -38,13 +32,7 @@ def csv_upload(file, rate: int, id: int) -> None:
                     future += timedelta(seconds=1)
                 timestamp += inc
             if buf:
-                r = s.post(ENDPOINT, json={
-                    'query': MUTATION_ADDDATA,
-                    'variables': {
-                        'id': id,
-                        'entries': buf
-                    }
-                }, headers={"Authorization": f"Bearer {token}"})
+                r = add_data(id, buf, token, s)
                 r.raise_for_status()
                 buf.clear()
 
