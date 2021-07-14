@@ -240,7 +240,8 @@ def surface_roughness(power, acc):
     power = matlab.double(power['val_list'])
     acc_n = matlab.double(acc['val_list'])
     acc_t = acc_n
-    return eng.sr_predictor(feed_rate, wheel_speed, work_speed, power, acc_n, acc_t) # type: ignore
+    predict: float = eng.sr_predictor(feed_rate, wheel_speed, work_speed, power, acc_n, acc_t) # type: ignore
+    return round(predict, 3)
 
 
 @app.callback(Output({'type': 'intermediate-data', 'index': 1}, 'data'),
@@ -292,18 +293,16 @@ def update_live_data(n, token, last_time, id1, id2, power):
     # Used for measuring performance
     start_processing = perf_counter()
 
-    # SMIP always returns one entry before the start time for each ID, we don't need this
-    if len(data) == 1 or len(data) == 2:
-        data.clear()
-
     # Unpack data
     def unpack(id: int):
         """Unpacks return data into time and value lists"""
         time_list = [i['ts'] for i in data if int(i['id']) == id]
         val_list = [i['floatvalue'] for i in data if int(i['id']) == id]
-        if not time_list:
+        # SMIP always returns one entry before the start time for each ID, we don't need this
+        if len(time_list) < 2 or len(val_list) < 2:
             return dash.no_update
-
+        time_list.pop(0)
+        val_list.pop(0)
         # Measure sampling rate
         rate = nan
         if len(time_list) > 1:
@@ -394,7 +393,11 @@ def calculate_times(data, power, run, idle, down):
     run_c -= idle_c
     down_c = np.count_nonzero(arr == 0)
     idle_c -= down_c
-    return run + run_c * data['rate'], idle + idle_c * data['rate'], down + down_c * data['rate']
+    logging.debug('Run %s Idle %s Down %s Rate %s', run_c, idle_c, down_c, data['rate'])
+    run += run_c * data['rate']
+    idle += idle_c * data['rate']
+    down += down_c * data['rate']
+    return round(run, 3), round(idle, 3), round(down, 3)
 
 
 @app.callback(Output({'type': 'time-graph', 'index': MATCH}, 'extendData'),
@@ -440,4 +443,4 @@ def update_spec(data, nperseg, window):
 
 
 if __name__ == '__main__':
-    app.run_server(debug=True)
+    app.run_server(debug=True, port=8000, host='0.0.0.0')

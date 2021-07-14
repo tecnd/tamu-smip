@@ -112,4 +112,4 @@ def stress(duration: int, rate: int, batch_size: int) -> None:
 if __name__ == "__main__":
     token = get_token("test", "smtamu_group", "parthdave", "parth1234")
     with requests.Session() as s:
-        stress(30, 8000, 1000)
+        stress(180, 8000, 1000)
