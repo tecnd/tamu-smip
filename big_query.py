@@ -18,4 +18,5 @@ r = requests.post(ENDPOINT, json={
     }
 }, headers={'Authorization': f'Bearer {token}'})
 elapsed = perf_counter() - start_timer
+print(len(r.json()['data']['getRawHistoryDataWithSampling']))
 print(datetime.now(), f'Got {len(r.content)} bytes in {elapsed} seconds')

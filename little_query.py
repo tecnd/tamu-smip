@@ -34,6 +34,7 @@ try:
             elapsed = perf_counter() - start_timer
             start_times.append(start_ts)
             elapsed_times.append(elapsed)
+            print(len(r.json()['data']['getRawHistoryDataWithSampling']))
             print(datetime.now(), f'Got {len(r.content)} bytes in {elapsed} seconds')
             sleep(1)
 except KeyboardInterrupt:
