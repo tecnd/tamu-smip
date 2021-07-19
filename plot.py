@@ -132,29 +132,41 @@ def _FormGroupMaker(labels: List[str]) -> List[dbc.FormGroup]:
     return groups
 
 
+_logo = html.Div([
+    html.Div(
+        html.A(html.Img(
+            src="https://dmc-assets.tamu.edu/pattern-library/logos/TAM-Logo-white.svg"),
+            href="https://www.tamu.edu/"),
+        className='c-logo-lockup-logo'),
+    html.Div([
+        html.P('Texas A&M University',
+               className='c-logo-lockup-wordmark-small'),
+        html.A(html.P(['Industrial & Systems', html.Br(), 'Engineering'],
+                      className='c-logo-lockup-wordmark-large'), href='https://engineering.tamu.edu/industrial/index.html')
+    ], className='c-logo-lockup-wordmark')
+], className="c-logo-lockup_maroon c-logo-lockup_horizontal")
+
+_elapsedTime = dbc.FormGroup([
+    dbc.Label('Elapsed Time', html_for='ElapsedTime'),
+    dbc.InputGroup([
+        dbc.Input(id='ElapsedTime', disabled=True),
+        dbc.InputGroupAddon(
+            dbc.Button('Times as %', id='percent'),
+            addon_type='append'
+        )
+    ])
+])
+
 app = dash.Dash(__name__,
                 external_stylesheets=[dbc.themes.BOOTSTRAP],
                 meta_tags=[{
                     "name": "viewport",
                     "content": "width=device-width, initial-scale=1"
                 }])
+
 app.layout = dbc.Container([
     dbc.Row([
-        dbc.Col([
-            html.Div([
-                html.Div(
-                    html.A(html.Img(
-                        src="https://dmc-assets.tamu.edu/pattern-library/logos/TAM-Logo-white.svg"),
-                        href="https://www.tamu.edu/"),
-                    className='c-logo-lockup-logo'),
-                html.Div([
-                    html.P('Texas A&M University',
-                           className='c-logo-lockup-wordmark-small'),
-                    html.A(html.P(['Industrial & Systems', html.Br(), 'Engineering'],
-                                  className='c-logo-lockup-wordmark-large'), href='https://engineering.tamu.edu/industrial/index.html')
-                ], className='c-logo-lockup-wordmark')
-            ], className="c-logo-lockup_maroon c-logo-lockup_horizontal"),
-        ], className='col-md-auto'),
+        dbc.Col(_logo, className='col-md-auto'),
         dbc.Col(html.H1('SMIP Dashboard', className='mt-2')),
         dbc.Col(html.P(id='info'), className='col-md-auto mt-2'),
         dbc.Col([
@@ -169,13 +181,14 @@ app.layout = dbc.Container([
         _graphs(2, 'Acceleration'),
         dbc.Col([
             dbc.Collapse(
-                dbc.Row([_settings(1, 5366, 'Power'), _settings(2, 5356, 'Acceleration')], form=True),
+                dbc.Row([_settings(1, 5366, 'Power'), _settings(
+                    2, 5356, 'Acceleration')], form=True),
                 id='collapse', is_open=True
             ),
             html.Hr(),
             html.Form([
                 dbc.Row([
-                    dbc.Col(_FormGroupMaker(['Elapsed Time'])),
+                    dbc.Col(_FormGroupMaker(['Wall Time'])),
                     dbc.Col(_FormGroupMaker(['Machine State']))
                 ], form=True),
                 html.Hr(),
@@ -188,8 +201,8 @@ app.layout = dbc.Container([
                 html.Hr(),
                 html.H5('Productivity Metrics'),
                 dbc.Row([
-                    dbc.Col(_FormGroupMaker(['Part Count', 'Idle Time (s)'])),
-                    dbc.Col(_FormGroupMaker(['Run Time (s)', 'Down Time (s)']))
+                    dbc.Col(_FormGroupMaker(['Part Count', 'Idle Time']) + [_elapsedTime]),
+                    dbc.Col(_FormGroupMaker(['Run Time', 'Down Time']))
                 ], form=True)
             ])
         ], lg=4)
@@ -227,7 +240,7 @@ def collapse(n, outline):
     return not outline, outline
 
 
-@app.callback(Output('ElapsedTime', 'value'),
+@app.callback(Output('WallTime', 'value'),
               Output('timer_start', 'data'),
               Input('interval-component', 'n_intervals'),
               Input('power', 'outline'),
@@ -239,8 +252,10 @@ def timer(n, power, timer_start):
     if ctx.triggered:
         if ctx.triggered[0]['prop_id'] == 'power.outline' and power == False:
             timer_start = datetime.now()
+    if timer_start is None:
+        timer_start = datetime.now()
     timer_start = to_datetime(timer_start)
-    return str((datetime.now() - timer_start).to_pytimedelta()), timer_start # type: ignore
+    return round((datetime.now() - timer_start).total_seconds(), 3), timer_start
 
 
 @app.callback(Output('SurfaceRoughnessRaum', 'value'),
@@ -255,7 +270,7 @@ def surface_roughness(power, acc):
     power = matlab.double(power['val_list'])
     acc_n = matlab.double(acc['val_list'])
     acc_t = acc_n
-    predict: float = eng.sr_predictor( # type: ignore
+    predict: float = eng.sr_predictor(  # type: ignore
         feed_rate, wheel_speed, work_speed, power, acc_n, acc_t)
     return round(predict, 3)
 
@@ -283,7 +298,7 @@ def update_live_data(n, token, last_time, id1, id2, power):
 
     # Initialization and lag prevention
     if last_time is None or end_time - strptime_fix(last_time) > timedelta(seconds=2):
-        logging.warning('Falling behind!')
+        logging.warning('Falling behind! Start %s End %s', last_time, end_time)
         last_time = end_time.isoformat()
 
     # Check if token is still valid
@@ -296,7 +311,8 @@ def update_live_data(n, token, last_time, id1, id2, power):
                  [id1, id2], token, s, timeout=1)
     timer_query_end = perf_counter()
     r.raise_for_status()
-    response_json = r.json()
+    response_json: dict = r.json()
+    logging.debug(response_json.keys())
     if 'errors' in response_json:
         logging.error(response_json)
         raise Exception()
@@ -332,7 +348,9 @@ def update_live_data(n, token, last_time, id1, id2, power):
                  data_processed - start_processing)
 
     return unpack(id1), unpack(id2), token, end_time.isoformat(), \
-        f'Last updated {end_time.astimezone()}, received {len(data)} samples in {data_processed - timer_start} seconds'
+        [f'Last updated {end_time.astimezone()},',
+         html.Br(),
+         f'received {len(data)} samples in {round(data_processed - timer_start, 3)} seconds']
 
 
 @app.callback(Output('MachineState', 'value'),
@@ -380,21 +398,22 @@ def good_parts(count, anomalous):
     return count - anomalous
 
 
-@app.callback(Output('RunTimes', 'value'),
-              Output('IdleTimes', 'value'),
-              Output('DownTimes', 'value'),
+@app.callback(Output('RunTime', 'value'),
+              Output('IdleTime', 'value'),
+              Output('DownTime', 'value'),
+              Output('ElapsedTime', 'value'),
               Input({'type': 'intermediate-data', 'index': 1}, 'data'),
               Input('power', 'outline'),
-              State('RunTimes', 'value'),
-              State('IdleTimes', 'value'),
-              State('DownTimes', 'value'))
+              State('RunTime', 'value'),
+              State('IdleTime', 'value'),
+              State('DownTime', 'value'))
 def calculate_times(data, power, run, idle, down):
     if power:
         raise PreventUpdate
     ctx = dash.callback_context
     if ctx.triggered:
         if ctx.triggered[0]['prop_id'] == 'power.outline' and power == False:
-            return 0, 0, 0
+            return 0, 0, 0, 0
     if data is None or not data['val_list'] or not data['rate']:
         raise PreventUpdate
     if run is None:
@@ -414,7 +433,7 @@ def calculate_times(data, power, run, idle, down):
     run += run_c * data['rate']
     idle += idle_c * data['rate']
     down += down_c * data['rate']
-    return round(run, 3), round(idle, 3), round(down, 3)
+    return round(run, 3), round(idle, 3), round(down, 3), round(run + idle + down, 3)
 
 
 @app.callback(Output({'type': 'time-graph', 'index': MATCH}, 'extendData'),
