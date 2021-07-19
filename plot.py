@@ -45,12 +45,12 @@ eng = matlab.engine.start_matlab()
 # Page layout stuff
 
 
-def _graphs(i: int) -> dbc.Col:
+def _graphs(i: int, label: str) -> dbc.Col:
     return dbc.Col([
         dcc.Graph(id={'type': 'time-graph', 'index': i}, animate=False, figure={
             'data': [{'x': [], 'y': []}],
             'layout': {
-                'title': 'Time portrait',
+                'title': f'{label} Time Portrait',
                 'xaxis': {'rangemode': 'tozero'},
                 'yaxis': {'rangemode': 'tozero'},
                 'margin': GRAPH_MARGIN
@@ -74,15 +74,15 @@ def _graphs(i: int) -> dbc.Col:
     ], lg=4)
 
 
-def _settings(i: int, id: int) -> dbc.Col:
+def _settings(i: int, id: int, label: str) -> dbc.Col:
     return dbc.Col(
         dbc.Form([
             dbc.FormGroup([
-                dbc.Label('ID', html_for=f'id{i}'),
+                dbc.Label(f'{label} ID', html_for=f'id{i}'),
                 dbc.Select(id=f'id{i}', options=[
-                    {'label': 'Power (5366)', 'value': 5366},
-                    {'label': 'Acceleration (5356)', 'value': 5356},
-                    {'label': 'Force (5348)', 'value': 5348}
+                    {'label': '5366 (Power)', 'value': 5366},
+                    {'label': '5356 (Acceleration)', 'value': 5356},
+                    {'label': '5348 (Force)', 'value': 5348}
                 ], value=id, persistence=True)
             ]),
             dbc.FormGroup([
@@ -140,21 +140,36 @@ app = dash.Dash(__name__,
                 }])
 app.layout = dbc.Container([
     dbc.Row([
-        dbc.Col(html.H1('Dashboard')),
-        dbc.Col(html.P(id='info'), className='col-md-auto'),
+        dbc.Col([
+            html.Div([
+                html.Div(
+                    html.A(html.Img(
+                        src="https://dmc-assets.tamu.edu/pattern-library/logos/TAM-Logo-white.svg"),
+                        href="https://www.tamu.edu/"),
+                    className='c-logo-lockup-logo'),
+                html.Div([
+                    html.P('Texas A&M University',
+                           className='c-logo-lockup-wordmark-small'),
+                    html.A(html.P(['Industrial & Systems', html.Br(), 'Engineering'],
+                                  className='c-logo-lockup-wordmark-large'), href='https://engineering.tamu.edu/industrial/index.html')
+                ], className='c-logo-lockup-wordmark')
+            ], className="c-logo-lockup_maroon c-logo-lockup_horizontal"),
+        ], className='col-md-auto'),
+        dbc.Col(html.H1('SMIP Dashboard', className='mt-2')),
+        dbc.Col(html.P(id='info'), className='col-md-auto mt-2'),
         dbc.Col([
             dbc.Button('Settings', id='settings', outline=False,
-                color='primary', className='float-right mt-2'),
+                color='light', className='float-right mt-2'),
             dbc.Button('Power', id='power', outline=True,
-                color='primary', className='float-right mt-2 mr-2')
+                color='light', className='float-right mt-2 mr-2')
         ])
-    ]),
+    ], className='header'),
     dbc.Row([
-        _graphs(1),
-        _graphs(2),
+        _graphs(1, 'Power'),
+        _graphs(2, 'Acceleration'),
         dbc.Col([
             dbc.Collapse(
-                dbc.Row([_settings(1, 5366), _settings(2, 5356)], form=True),
+                dbc.Row([_settings(1, 5366, 'Power'), _settings(2, 5356, 'Acceleration')], form=True),
                 id='collapse', is_open=True
             ),
             html.Hr(),
@@ -240,7 +255,8 @@ def surface_roughness(power, acc):
     power = matlab.double(power['val_list'])
     acc_n = matlab.double(acc['val_list'])
     acc_t = acc_n
-    predict: float = eng.sr_predictor(feed_rate, wheel_speed, work_speed, power, acc_n, acc_t) # type: ignore
+    predict: float = eng.sr_predictor( # type: ignore
+        feed_rate, wheel_speed, work_speed, power, acc_n, acc_t)
     return round(predict, 3)
 
 
@@ -393,7 +409,8 @@ def calculate_times(data, power, run, idle, down):
     run_c -= idle_c
     down_c = np.count_nonzero(arr == 0)
     idle_c -= down_c
-    logging.debug('Run %s Idle %s Down %s Rate %s', run_c, idle_c, down_c, data['rate'])
+    logging.debug('Run %s Idle %s Down %s Rate %s',
+                  run_c, idle_c, down_c, data['rate'])
     run += run_c * data['rate']
     idle += idle_c * data['rate']
     down += down_c * data['rate']
