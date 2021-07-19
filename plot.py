@@ -151,7 +151,7 @@ _elapsedTime = dbc.FormGroup([
     dbc.InputGroup([
         dbc.Input(id='ElapsedTime', disabled=True),
         dbc.InputGroupAddon(
-            dbc.Button('Times as %', id='percent'),
+            dbc.Button('Time as %', id='percent', type='button', n_clicks=0),
             addon_type='append'
         )
     ])
@@ -201,7 +201,8 @@ app.layout = dbc.Container([
                 html.Hr(),
                 html.H5('Productivity Metrics'),
                 dbc.Row([
-                    dbc.Col(_FormGroupMaker(['Part Count', 'Idle Time']) + [_elapsedTime]),
+                    dbc.Col(_FormGroupMaker(
+                        ['Part Count', 'Idle Time']) + [_elapsedTime]),
                     dbc.Col(_FormGroupMaker(['Run Time', 'Down Time']))
                 ], form=True)
             ])
@@ -219,6 +220,7 @@ app.layout = dbc.Container([
         dcc.Store(id='last_time'),
         dcc.Store(id='timer_start'),
         dcc.Store(id='anomaly_flag', data=False),
+        dcc.Store(id='times', data={'run': 0, 'idle': 0, 'down': 0}),
         dcc.Store(id={'type': 'intermediate-data', 'index': 1}),
         dcc.Store(id={'type': 'intermediate-data', 'index': 2})
     ])
@@ -297,9 +299,9 @@ def update_live_data(n, token, last_time, id1, id2, power):
     end_time = datetime.now(timezone.utc) - timedelta(seconds=1)
 
     # Initialization and lag prevention
-    if last_time is None or end_time - strptime_fix(last_time) > timedelta(seconds=2):
+    if last_time is None or end_time - strptime_fix(last_time) > timedelta(seconds=3):
         logging.warning('Falling behind! Start %s End %s', last_time, end_time)
-        last_time = end_time.isoformat()
+        return dash.no_update, dash.no_update, dash.no_update, end_time.isoformat(), dash.no_update
 
     # Check if token is still valid
     token = update_token(token, 'test', 'smtamu_group',
@@ -398,30 +400,45 @@ def good_parts(count, anomalous):
     return count - anomalous
 
 
+@app.callback(Output('percent', 'children'),
+              Input('percent', 'n_clicks'))
+def percent(n):
+    if n is None:
+        raise PreventUpdate
+    if n % 2 == 0:
+        return 'Time as %'
+    return 'Time as s'
+
+
 @app.callback(Output('RunTime', 'value'),
               Output('IdleTime', 'value'),
               Output('DownTime', 'value'),
               Output('ElapsedTime', 'value'),
+              Output('times', 'data'),
               Input({'type': 'intermediate-data', 'index': 1}, 'data'),
               Input('power', 'outline'),
-              State('RunTime', 'value'),
-              State('IdleTime', 'value'),
-              State('DownTime', 'value'))
-def calculate_times(data, power, run, idle, down):
-    if power:
-        raise PreventUpdate
+              Input('percent', 'n_clicks'),
+              State('times', 'data'))
+def calculate_times(data, power, percent, times):
+    def _percentify(input: List[float]) -> List[str]:
+        return [str(round(x / elapsed * 100, 3)) + '%' for x in input]
     ctx = dash.callback_context
     if ctx.triggered:
         if ctx.triggered[0]['prop_id'] == 'power.outline' and power == False:
-            return 0, 0, 0, 0
+            return 0, 0, 0, 0, {'run': 0, 'idle': 0, 'down': 0}
+        elif ctx.triggered[0]['prop_id'] == 'percent.n_clicks':
+            if percent % 2 == 0:
+                return round(times['run'], 3), round(times['idle'], 3), round(times['down'], 3),\
+                    round(times['run'] + times['idle'] +
+                          times['down'], 3), dash.no_update
+            elapsed = times['run'] + times['idle'] + times['down']
+            if elapsed == 0:
+                raise PreventUpdate
+            return *_percentify([times['run'], times['idle'], times['down']]), round(elapsed, 3), dash.no_update
+    if power:
+        raise PreventUpdate
     if data is None or not data['val_list'] or not data['rate']:
         raise PreventUpdate
-    if run is None:
-        run = 0
-    if idle is None:
-        idle = 0
-    if down is None:
-        down = 0
     arr = np.array(data['val_list'])
     run_c = len(data['val_list'])
     idle_c = np.count_nonzero(arr < 100)
@@ -430,10 +447,14 @@ def calculate_times(data, power, run, idle, down):
     idle_c -= down_c
     logging.debug('Run %s Idle %s Down %s Rate %s',
                   run_c, idle_c, down_c, data['rate'])
-    run += run_c * data['rate']
-    idle += idle_c * data['rate']
-    down += down_c * data['rate']
-    return round(run, 3), round(idle, 3), round(down, 3), round(run + idle + down, 3)
+    times['run'] += run_c * data['rate']
+    times['idle'] += idle_c * data['rate']
+    times['down'] += down_c * data['rate']
+    elapsed = times['run'] + times['idle'] + times['down']
+    if percent % 2 == 0:
+        return round(times['run'], 3), round(times['idle'], 3), round(times['down'], 3),\
+            round(elapsed, 3), times
+    return *_percentify([times['run'], times['idle'], times['down']]), round(elapsed, 3), times
 
 
 @app.callback(Output({'type': 'time-graph', 'index': MATCH}, 'extendData'),
