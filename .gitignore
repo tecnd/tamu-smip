@@ -3,4 +3,3 @@ __pycache__/*
 *.log
 *.tdms
 *.tdms_index
-smip_test.csv
