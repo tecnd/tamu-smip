@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 import requests
 
-from smip_io import add_data, get_token
+from smip_io import add_data_async, get_token
 
 
 def sin_plot(rate: int, freq1: float) -> None:
@@ -23,7 +23,7 @@ def sin_plot(rate: int, freq1: float) -> None:
             val_range = np.sin(freq1 * val_range)
             payload = [{'timestamp': ts.isoformat(), 'value': str(val), 'status': 0}
                        for ts, val in zip(time_range, val_range)]
-            add_data(5356, payload, token, s)
+            add_data_async(5356, payload, token, s)
             t += rate
             now = future
             rest = future - datetime.now(timezone.utc)
@@ -34,4 +34,4 @@ def sin_plot(rate: int, freq1: float) -> None:
 if __name__ == "__main__":
     logging.basicConfig(filename='sin_plotter.log',
                         format='%(asctime)s %(levelname)s %(message)s', filemode='w', level=logging.DEBUG)
-    sin_plot(8000, 20)
+    sin_plot(15000, 20)

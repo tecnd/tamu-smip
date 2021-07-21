@@ -89,7 +89,7 @@ def _settings(i: int, id: int, label: str) -> dbc.Col:
                 dbc.Label('Show last samples', html_for={
                           'type': 'keep_last', 'index': i}),
                 dbc.Input(id={'type': 'keep_last', 'index': i}, type="number",
-                          min=10, max=10000, value=1024, persistence=True)
+                          min=10, max=40000, value=1024, persistence=True)
             ]),
             dbc.FormGroup([
                 dbc.Label('Frequency bins', html_for={

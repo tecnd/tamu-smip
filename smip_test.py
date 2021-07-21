@@ -15,7 +15,8 @@ ID = 5356
 
 
 def upload(samples: int, token: str, session: Session = None, quiet: bool = True) -> Tuple[float, float]:
-    if not quiet: print('Clearing data')
+    if not quiet:
+        print('Clearing data')
     r = smip_io.clear_data(START.isoformat(), END.isoformat(), ID, token)
     if not quiet:
         print(r.json())
@@ -24,15 +25,19 @@ def upload(samples: int, token: str, session: Session = None, quiet: bool = True
         start=START, end=END, periods=samples, normalize=True, tz='UTC')
     entries = [{'timestamp': ts.isoformat(), 'value': str(random()), 'status': 0}
                for ts in time_range]
-    if not quiet: print('Uploading data')
+    if not quiet:
+        print('Uploading data')
     upload_timer_start = perf_counter()
     smip_io.add_data_async(ID, entries, token, session)
     upload_timer_stop = perf_counter()
-    if not quiet: print('Downloading data')
+    if not quiet:
+        print('Downloading data')
     download_timer_start = perf_counter()
-    r = smip_io.get_data(START.isoformat(), END.isoformat(), [ID], token, session)
+    r = smip_io.get_data(START.isoformat(), END.isoformat(), [
+                         ID], token, session)
     download_timer_stop = perf_counter()
-    if not quiet: print('Verifying data')
+    if not quiet:
+        print('Verifying data')
     data = r.json()['data']['getRawHistoryDataWithSampling']
     assert len(data) == len(entries)
 
@@ -46,7 +51,8 @@ if __name__ == "__main__":
         with open('smip_test.csv', 'w', newline='') as f:
             writer = csv.writer(f)
             writer.writerow(('Size', 'Upload time', 'Download time'))
-            token = smip_io.get_token("test", "smtamu_group", "parthdave", "parth1234")
+            token = smip_io.get_token(
+                "test", "smtamu_group", "parthdave", "parth1234")
             with Session() as s:
                 for size in range(1000, 100001, 1000):
                     for i in range(3):
@@ -55,10 +61,11 @@ if __name__ == "__main__":
                         sleep(1)
     else:
         filename = sys.argv[1] if len(sys.argv) > 1 else 'smip_test.csv'
-        import pandas as pd
         import matplotlib.pyplot as plt
+        import pandas as pd
         df = pd.read_csv(filename)
         ax = df.plot.scatter(x='Size', y='Upload time', label='Upload')
-        df.plot.scatter(x='Size', y='Download time', color='Orange', label='Download', ax=ax)
+        df.plot.scatter(x='Size', y='Download time',
+                        color='Orange', label='Download', ax=ax)
         plt.ylabel('Transfer time (s)')
         plt.show()
