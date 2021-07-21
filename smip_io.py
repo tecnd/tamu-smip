@@ -1,9 +1,11 @@
 """Handles authentication and communication with SMIP via GraphQL"""
 
-from typing import List
+from concurrent.futures import Future
+from typing import List, cast
 
 import jwt
 import requests
+from requests_futures.sessions import FuturesSession
 
 ENDPOINT = "https://smtamu.cesmii.net/graphql"
 
@@ -103,6 +105,53 @@ def add_data(id: int, entries: List[dict], token: str, session: requests.Session
     return r
 
 
+def batcher(iterable, n: int = 1000):
+    """Yields generator that splits long list into chunks of length n."""
+    l = len(iterable)
+    for ndx in range(0, l, n):
+        yield iterable[ndx:min(ndx + n, l)]
+
+
+def add_data_async(id: int, entries: List[dict], token: str, timeout: float = None):
+    """Breaks up timeseries into chunks of 1000 and uploads asynchronously, returns a list of futures"""
+    with FuturesSession() as session:
+        post = [add_data(id, batch, token, session, timeout)
+                for batch in batcher(entries)]
+        post = cast(List[Future], post)
+        resp =  [future.result() for future in post]
+    return resp
+
+
+MUTATION_CLEARDATA = """
+mutation AddData($startTime: Datetime, $endTime: Datetime, $id: BigInt) {
+  replaceTimeSeriesRange(
+    input: {
+        endTime: $endTime
+        startTime: $startTime
+        attributeOrTagId: $id,
+    }
+  ) {
+    json
+  }
+}
+"""
+
+
+def clear_data(start_time: str, end_time: str, id: int, token: str, timeout: float = None) -> requests.Response:
+    """Clears timeseries from SMIP."""
+    json = {
+        "query": MUTATION_CLEARDATA,
+        "variables": {
+            "endTime": end_time,
+            "startTime": start_time,
+            "id": id
+        }
+    }
+    headers = {"Authorization": f"Bearer {token}"}
+    r = requests.post(ENDPOINT, json=json, headers=headers, timeout=timeout)
+    return r
+
+
 # GraphQL query to get data from SMIP
 QUERY_GETDATA = """
 query GetData($startTime: Datetime, $endTime: Datetime, $ids: [BigInt]) {
@@ -137,13 +186,6 @@ def get_data(start_time: str, end_time: str, ids: List[int], token: str, session
     else:
         r = session.post(ENDPOINT, json=json, headers=headers, timeout=timeout)
     return r
-
-
-def batcher(iterable, n: int = 1000):
-    """Yields generator that splits long list into chunks of length n."""
-    l = len(iterable)
-    for ndx in range(0, l, n):
-        yield iterable[ndx:min(ndx + n, l)]
 
 
 if __name__ == '__main__':
