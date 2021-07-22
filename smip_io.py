@@ -112,13 +112,25 @@ def batcher(iterable, n: int = 1000):
         yield iterable[ndx:min(ndx + n, l)]
 
 
-def add_data_async(id: int, entries: List[dict], token: str, session:requests.Session = None, timeout: float = None):
-    """Breaks up timeseries into chunks of 1000 and uploads asynchronously, returns a list of futures"""
+def add_data_serial(id: int, entries: List[dict], token: str, session: requests.Session = None, timeout: float = None):
+    """Breaks up timeseries into chunks of 8000 and uploads serially, returns a list of Responses"""
+    if session is None:
+        with requests.Session() as s:
+            resp_list = [add_data(id, batch, token, s, timeout)
+                         for batch in batcher(entries, 8000)]
+    else:
+        resp_list = [add_data(id, batch, token, session, timeout)
+                     for batch in batcher(entries, 8000)]
+    return resp_list
+
+
+def add_data_async(id: int, entries: List[dict], token: str, session: requests.Session = None, timeout: float = None):
+    """Breaks up timeseries into chunks of 1000 and uploads asynchronously, returns a list of Futures"""
     with FuturesSession(session=session) as s:
         post = [add_data(id, batch, token, s, timeout)
                 for batch in batcher(entries)]
         post = cast(List[Future], post)
-        resp =  [future.result() for future in as_completed(post)]
+        resp = [future.result() for future in as_completed(post)]
     return resp
 
 

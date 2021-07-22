@@ -22,7 +22,7 @@ def upload(samples: int, token: str, session: Session = None, quiet: bool = True
         print(r.json())
         print('Generating data')
     time_range = pd.date_range(
-        start=START, end=END, periods=samples, normalize=True, tz='UTC')
+        start=START, end=END, periods=samples, tz='UTC')
     entries = [{'timestamp': ts.isoformat(), 'value': str(random()), 'status': 0}
                for ts in time_range]
     if not quiet:
@@ -39,7 +39,7 @@ def upload(samples: int, token: str, session: Session = None, quiet: bool = True
     if not quiet:
         print('Verifying data')
     data = r.json()['data']['getRawHistoryDataWithSampling']
-    assert len(data) == len(entries)
+    assert len(data) == len(entries), f'{len(data)} != {len(entries)}'
 
     upload_t = upload_timer_stop - upload_timer_start
     download_t = download_timer_stop - download_timer_start
