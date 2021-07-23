@@ -167,8 +167,7 @@ app = dash.Dash(__name__,
 app.layout = dbc.Container([
     dbc.Row([
         dbc.Col(_logo, className='col-md-auto'),
-        dbc.Col(html.H1('SMIP Dashboard', className='mt-2')),
-        dbc.Col(html.P(id='info'), className='col-md-auto mt-2'),
+        dbc.Col(html.H2('SM Real-Time Machine Performance & Productivity Dashboard'), className='col-md-auto mt-2'),
         dbc.Col([
             dbc.Button('Settings', id='settings', outline=False,
                 color='light', className='float-right mt-2'),
@@ -204,8 +203,9 @@ app.layout = dbc.Container([
                     dbc.Col(_FormGroupMaker(
                         ['Part Count', 'Idle Time']) + [_elapsedTime]),
                     dbc.Col(_FormGroupMaker(['Run Time', 'Down Time']))
-                ], form=True)
-            ])
+                ], form=True),
+            ]),
+            html.P(id='info')
         ], lg=4)
     ]),
     html.Div([
