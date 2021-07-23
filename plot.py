@@ -167,7 +167,8 @@ app = dash.Dash(__name__,
 app.layout = dbc.Container([
     dbc.Row([
         dbc.Col(_logo, className='col-md-auto'),
-        dbc.Col(html.H1('SM Real-Time Machine Performance & Productivity Dashboard'), className='mt-2'),
+        dbc.Col(html.H1(
+            'SM Real-Time Machine Performance & Productivity Dashboard'), className='mt-2'),
         dbc.Col([
             dbc.Button('Settings', id='settings', outline=False,
                 color='light', className='float-right mt-2'),
@@ -321,7 +322,6 @@ def update_live_data(n, token, last_time, id1, id2, power):
     data = response_json['data']['getRawHistoryDataWithSampling']
     logging.info('Got %s responses in %s seconds', len(
         data), timer_query_end - timer_query_start)
-
     # Take timestamps and values out of response, format
 
     # Used for measuring performance
@@ -330,6 +330,7 @@ def update_live_data(n, token, last_time, id1, id2, power):
     # Unpack data
     def unpack(id: int):
         """Unpacks return data into time and value lists"""
+        id = int(id)
         time_list = [i['ts'] for i in data if int(i['id']) == id]
         val_list = [i['floatvalue'] for i in data if int(i['id']) == id]
         # SMIP always returns one entry before the start time for each ID, we don't need this
