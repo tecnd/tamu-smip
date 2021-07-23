@@ -8,12 +8,13 @@
     margin-bottom: 1.25rem;
 }
 
-.header h2,
-.header p {
+.header h1 {
     color: white;
+    font-size: 2.2rem;
 }
 
-.c-logo-lockup_maroon a {
+.c-logo-lockup_maroon a,
+.c-logo-lockup_maroon p {
     text-decoration: none;
     color: white;
 }
@@ -37,14 +38,14 @@
 }
 
 .c-logo-lockup_maroon .c-logo-lockup-wordmark .c-logo-lockup-wordmark-small {
-    font-size: .8rem;
+    font-size: .6rem;
     letter-spacing: .5px;
     text-transform: uppercase;
     font-weight: 600;
 }
 
 .c-logo-lockup_maroon .c-logo-lockup-wordmark .c-logo-lockup-wordmark-large {
-    font-size: 1.25rem;
+    font-size: 1rem;
     letter-spacing: .25px;
 }
 
@@ -73,13 +74,13 @@
 /*-- Logo Lockup Horizontal on Maroon BG--*/
 .c-logo-lockup_maroon.c-logo-lockup_horizontal .c-logo-lockup-logo {
     border-right: 1px solid white;
-    padding-right: 1.25rem;
+    padding-right: .5rem;
 }
 
 .c-logo-lockup_maroon.c-logo-lockup_horizontal .c-logo-lockup-logo img {
-    width: 55px;
+    width: 45px;
 }
 
 .c-logo-lockup_maroon.c-logo-lockup_horizontal .c-logo-lockup-wordmark {
-    padding-left: 1.25rem;
+    padding-left: .5rem;
 }

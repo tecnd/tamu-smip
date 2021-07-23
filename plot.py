@@ -167,13 +167,13 @@ app = dash.Dash(__name__,
 app.layout = dbc.Container([
     dbc.Row([
         dbc.Col(_logo, className='col-md-auto'),
-        dbc.Col(html.H2('SM Real-Time Machine Performance & Productivity Dashboard'), className='col-md-auto mt-2'),
+        dbc.Col(html.H1('SM Real-Time Machine Performance & Productivity Dashboard'), className='mt-2'),
         dbc.Col([
             dbc.Button('Settings', id='settings', outline=False,
                 color='light', className='float-right mt-2'),
             dbc.Button('Power', id='power', outline=True,
                 color='light', className='float-right mt-2 mr-2')
-        ])
+        ], className='col-md-auto')
     ], className='header'),
     dbc.Row([
         _graphs(1, 'Power'),
