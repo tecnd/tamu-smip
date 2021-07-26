@@ -86,19 +86,19 @@ def _settings(i: int, id: int, label: str) -> dbc.Col:
                 ], value=id, persistence=True)
             ]),
             dbc.FormGroup([
-                dbc.Label('Show last samples', html_for={
+                dbc.Label('Show Last Samples', html_for={
                           'type': 'keep_last', 'index': i}),
                 dbc.Input(id={'type': 'keep_last', 'index': i}, type="number",
                           min=10, max=40000, value=1024, persistence=True)
             ]),
             dbc.FormGroup([
-                dbc.Label('Frequency bins', html_for={
+                dbc.Label('Frequency Bins', html_for={
                           'type': 'nperseg', 'index': i}),
                 dbc.Input(id={'type': 'nperseg', 'index': i}, type="number",
                           min=1, max=1000, value=250, persistence=True)
             ]),
             dbc.FormGroup([
-                dbc.Label('Window type', html_for={
+                dbc.Label('Window Type', html_for={
                           'type': 'window', 'index': i}),
                 dbc.Select(id={'type': 'window', 'index': i}, options=[
                     {'label': 'Boxcar', 'value': 'boxcar'},
@@ -180,12 +180,29 @@ app.layout = dbc.Container([
         _graphs(1, 'Power'),
         _graphs(2, 'Acceleration'),
         dbc.Col([
-            dbc.Collapse(
+            dbc.Collapse([
                 dbc.Row([_settings(1, 5366, 'Power'), _settings(
                     2, 5356, 'Acceleration')], form=True),
-                id='collapse', is_open=True
-            ),
-            html.Hr(),
+                html.Hr(),
+                dbc.Row([
+                    dbc.Col(
+                        dbc.FormGroup([
+                            dbc.Label('Idle Level', html_for='IdleLevel'),
+                            dbc.Input(id='IdleLevel', type="number",
+                                      min=1, max=1000, value=100, persistence=True)
+                        ])
+                    ),
+                    dbc.Col(
+                        dbc.FormGroup([
+                            dbc.Label('Abnormal Level',
+                                      html_for='AbnormalLevel'),
+                            dbc.Input(id='AbnormalLevel', type="number",
+                                      min=1, max=10000, value=5800, persistence=True)
+                        ])
+                    )
+                ], form=True),
+                html.Hr(),
+            ], id='collapse', is_open=True),
             html.Form([
                 dbc.Row([
                     dbc.Col(_FormGroupMaker(['Wall Time'])),
@@ -365,8 +382,10 @@ def update_live_data(n, token, last_time, id1, id2, power):
               State('MachineState', 'value'),
               State('PartCount', 'value'),
               State('AnomalousParts', 'value'),
-              State('anomaly_flag', 'data'))
-def machine_state(data, power, state, count, anomalous, flag):
+              State('anomaly_flag', 'data'),
+              State('IdleLevel', 'value'),
+              State('AbnormalLevel', 'value'))
+def machine_state(data, power, state, count, anomalous, flag, idle_level, abnormal_level):
     if power:
         raise PreventUpdate
     ctx = dash.callback_context
@@ -376,11 +395,13 @@ def machine_state(data, power, state, count, anomalous, flag):
     if data is None or not data['val_list']:
         raise PreventUpdate
     average = np.mean(data['val_list'])
+    if abs(average) < 1:
+        average = np.mean([v for v in data['val_list'] if v >= 0])
     if average == 0:
         new_state = 'MACHINE STOP'
-    elif average < 100:
+    elif average < idle_level:
         new_state = 'MACHINE IDLE'
-    elif average > 5800:
+    elif average > abnormal_level:
         new_state = 'ABNORMAL OPERATION'
     else:
         new_state = 'NORMAL OPERATION'
@@ -419,8 +440,9 @@ def percent(n):
               Input({'type': 'intermediate-data', 'index': 1}, 'data'),
               Input('power', 'outline'),
               Input('percent', 'n_clicks'),
-              State('times', 'data'))
-def calculate_times(data, power, percent, times):
+              State('times', 'data'),
+              State('IdleLevel', 'value'))
+def calculate_times(data, power, percent, times, idle_level):
     def _percentify(input: List[float]) -> List[str]:
         return [str(round(x / elapsed * 100, 3)) + '%' for x in input]
     ctx = dash.callback_context
@@ -442,7 +464,7 @@ def calculate_times(data, power, percent, times):
         raise PreventUpdate
     arr = np.array(data['val_list'])
     run_c = len(data['val_list'])
-    idle_c = np.count_nonzero(arr < 100)
+    idle_c = np.count_nonzero(arr < idle_level)
     run_c -= idle_c
     down_c = np.count_nonzero(arr == 0)
     idle_c -= down_c
