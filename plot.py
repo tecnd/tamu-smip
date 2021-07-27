@@ -15,15 +15,18 @@ import matlab.engine
 import numpy as np
 # import plotly.express as px
 import plotly.graph_objects as go
-import requests
 from dash.dependencies import MATCH, Input, Output, State
 from dash.exceptions import PreventUpdate
 from pandas import to_datetime
 from scipy import signal
 
 # Local imports
-from smip_io import get_data, update_token
+from smip_io2 import SMIP
 from strptime_fix import strptime_fix
+
+# Establish connection
+conn = SMIP("https://smtamu.cesmii.net/graphql", "test",
+            "smtamu_group", "parthdave", "parth1234")
 
 # Define constants
 GRAPH_MARGIN = {'l': 40, 'r': 10, 't': 50, 'b': 50}
@@ -33,11 +36,8 @@ fh = logging.FileHandler(filename='plot.log', mode='w')
 sh = logging.StreamHandler()
 sh.setLevel(logging.INFO)
 logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s',
-                    level=logging.DEBUG,
+                    level=logging.DEBUG if __name__ == '__main__' else logging.WARNING,
                     handlers=[fh, sh])
-
-# All requests go through a single session for network efficiency
-s = requests.Session()
 
 # Start MATLAB engine
 eng = matlab.engine.start_matlab()
@@ -233,8 +233,6 @@ app.layout = dbc.Container([
             interval=1*1000,  # in milliseconds
             n_intervals=0
         ),
-        # Store JWT in local memory, saved across browser closes
-        dcc.Store(id='jwt', storage_type='local', data=''),
         dcc.Store(id='last_time'),
         dcc.Store(id='timer_start'),
         dcc.Store(id='anomaly_flag', data=False),
@@ -297,17 +295,15 @@ def surface_roughness(power, acc):
 
 @app.callback(Output({'type': 'intermediate-data', 'index': 1}, 'data'),
               Output({'type': 'intermediate-data', 'index': 2}, 'data'),
-              Output('jwt', 'data'),
               Output('last_time', 'data'),
               Output('info', 'children'),
               Input('interval-component', 'n_intervals'),
-              State('jwt', 'data'),
               State('last_time', 'data'),
               State('id1', 'value'),
               State('id2', 'value'),
               State('power', 'outline')
               )
-def update_live_data(n, token, last_time, id1, id2, power):
+def update_live_data(n, last_time, id1, id2, power):
     """Callback to get data every second."""
     if power:
         raise PreventUpdate
@@ -319,18 +315,14 @@ def update_live_data(n, token, last_time, id1, id2, power):
     # Initialization and lag prevention
     if last_time is None or end_time - strptime_fix(last_time) > timedelta(seconds=3):
         logging.warning('Falling behind! Start %s End %s', last_time, end_time)
-        return dash.no_update, dash.no_update, dash.no_update, end_time.isoformat(), dash.no_update
+        return dash.no_update, dash.no_update, end_time.isoformat(), dash.no_update
 
-    # Check if token is still valid
-    token = update_token(token, 'test', 'smtamu_group',
-                         'parthdave', 'parth1234')
     # Query data from SMIP
     logging.info(f'start_time {last_time} end_time {end_time}')
     timer_query_start = perf_counter()
-    r = get_data(last_time, end_time.isoformat(),
-                 [id1, id2], token, s, timeout=1)
+    r = conn.get_data(last_time, end_time.isoformat(),
+                      [id1, id2], timeout=1)
     timer_query_end = perf_counter()
-    r.raise_for_status()
     response_json: dict = r.json()
     logging.debug(response_json.keys())
     if 'errors' in response_json:
@@ -339,7 +331,6 @@ def update_live_data(n, token, last_time, id1, id2, power):
     data = response_json['data']['getRawHistoryDataWithSampling']
     logging.info('Got %s responses in %s seconds', len(
         data), timer_query_end - timer_query_start)
-    # Take timestamps and values out of response, format
 
     # Used for measuring performance
     start_processing = perf_counter()
@@ -367,7 +358,7 @@ def update_live_data(n, token, last_time, id1, id2, power):
     logging.info('Total %s Query %s Processing %s', data_processed - timer_start, timer_query_end - timer_query_start,
                  data_processed - start_processing)
 
-    return unpack(id1), unpack(id2), token, end_time.isoformat(), \
+    return unpack(id1), unpack(id2), end_time.isoformat(), \
         [f'Last updated {end_time.astimezone()},',
          html.Br(),
          f'received {len(data)} samples in {round(data_processed - timer_start, 3)} seconds']
