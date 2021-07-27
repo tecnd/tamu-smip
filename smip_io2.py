@@ -1,10 +1,12 @@
 """Rewrite of smip_io using a class"""
 
 from concurrent.futures import Future, as_completed
+from datetime import datetime
 from typing import List, cast
 
 import jwt
 import requests
+from pandas import date_range
 from requests_futures.sessions import FuturesSession
 
 # GraphQL mutation to generate a challenge for user
@@ -131,6 +133,7 @@ class SMIP:
 
     def add_data(self, id: int, entries: List[dict], timeout: float = None, async_mode: bool = False) -> requests.Response:
         """Sends timeseries to SMIP."""
+        self.update_token()
         s = self.__futureSession if async_mode else self.__session
         json = {
             "query": MUTATION_ADDDATA,
@@ -151,16 +154,16 @@ class SMIP:
         for ndx in range(0, l, n):
             yield toSplit[ndx:min(ndx + n, l)]
 
-    def add_data_serial(self, id: int, entries: List[dict], timeout: float = None):
-        """Breaks up timeseries into chunks of 8000 and uploads serially, returns a list of Responses"""
+    def add_data_serial(self, id: int, entries: List[dict], timeout: float = None) -> List[requests.Response]:
+        """Breaks up timeseries into chunks of 8000 and uploads serially, returns a list of Responses."""
         resp_list = [self.add_data(id, batch, timeout)
                      for batch in self.batcher(entries, 8000)]
         for r in resp_list:
             r.raise_for_status()
         return resp_list
 
-    def add_data_async(self, id: int, entries: List[dict], timeout: float = None):
-        """Breaks up timeseries into chunks of 1000 and uploads asynchronously, returns a list of Futures"""
+    def add_data_async(self, id: int, entries: List[dict], timeout: float = None) -> List[requests.Response]:
+        """Breaks up timeseries into chunks of 1000 and uploads asynchronously, returns a list of Responses."""
         post = [self.add_data(id, batch, timeout, async_mode=True)
                 for batch in self.batcher(entries)]
         post = cast(List[Future], post)
@@ -170,8 +173,19 @@ class SMIP:
             r.raise_for_status()
         return resp_list
 
+    def add_data_from_ts(self, id: int, entries: List, startTime: datetime, freq: float, timeout: float = None, async_mode=True) -> List[requests.Response]:
+        """Calculates timestamps from start time and frequency, then uploads. Returns a list of Responses."""
+        add = self.add_data_async if async_mode else self.add_data_serial
+        time_range = date_range(
+            start=startTime, periods=len(entries), freq=f'{1/freq}S')
+        data = [{'timestamp': ts.isoformat(),
+                 'value': str(val).strip(),
+                 'status': 0} for ts, val in zip(time_range, entries)]
+        return add(id=id, entries=data, timeout=timeout)
+
     def clear_data(self, start_time: str, end_time: str, id: int, timeout: float = None) -> requests.Response:
         """Clears timeseries from SMIP."""
+        self.update_token()
         json = {
             "query": MUTATION_CLEARDATA,
             "variables": {
@@ -188,6 +202,7 @@ class SMIP:
 
     def get_data(self, start_time: str, end_time: str, ids: List[int], timeout: float = None) -> requests.Response:
         """Gets timeseries from SMIP."""
+        self.update_token()
         json = {
             "query": QUERY_GETDATA,
             "variables": {
