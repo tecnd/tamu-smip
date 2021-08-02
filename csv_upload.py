@@ -1,3 +1,4 @@
+import csv
 import sys
 from datetime import datetime, timezone
 
@@ -14,6 +15,20 @@ def csv_upload(file, rate: int, id: int) -> None:
                               startTime=datetime.now(timezone.utc),
                               freq=rate,
                               async_mode=True)
+
+
+def csv_upload_ts(file, id: int) -> None:
+    """Reads values and timestamps from a csv file and uploads to SMIP."""
+    conn = SMIP("https://smtamu.cesmii.net/graphql", "test",
+                "smtamu_group", "parthdave", "parth1234")
+    with open(file, 'r', newline='') as f:
+        reader = csv.reader(f)
+        data = [{
+            'timestamp': datetime.fromtimestamp(float(row[1])).isoformat(),
+            'value': row[0],
+            'status': 0
+        } for row in reader]
+        conn.add_data_async(id, data)
 
 
 if __name__ == "__main__":
